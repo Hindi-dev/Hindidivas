@@ -1,15 +1,12 @@
 import streamlit as st
-import pandas as pd
 import random
-import io
-from datetime import datetime
+import pandas as pd
 from supabase import create_client, Client
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Registration Form / पंजीकरण फॉर्म", layout="wide")
+st.set_page_config(page_title="Registration / पंजीकरण", layout="centered")
 
 # --- DATABASE CONNECTION ---
-# Initialize connection to Supabase using Streamlit Secrets
 @st.cache_resource
 def init_connection() -> Client:
     url = st.secrets["SUPABASE_URL"]
@@ -20,114 +17,112 @@ try:
     supabase = init_connection()
 except Exception as e:
     st.error(f"Database connection failed / डेटाबेस कनेक्शन विफल: {e}")
+    st.stop()
 
-# --- HELPER FUNCTIONS ---
-def generate_unique_code():
-    """Generates a random 4-digit code."""
-    return str(random.randint(1000, 9999))
+# --- COMPETITIONS & DATES ---
+COMPETITIONS = {
+    "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली": "2026-09-17",
+    "शब्दकोश प्रतियोगिता": "2026-09-18",
+    "हिंदी टंकण प्रतियोगिता": "2026-09-21",
+    "निबंध लेखन": "2026-09-23",
+    "वाद-विवाद प्रतियोगिता": "2026-09-24",
+    "तस्वीर क्या बोलती है": "2026-09-25",
+    "टिप्पणी एवं पत्र मसौदा लेखन": "2026-09-28"
+}
 
-def to_excel(df):
-    """Converts a Pandas DataFrame to an Excel file in memory."""
-    output = io.BytesIO()
-    # openpyxl natively supports UTF-8 for Hindi text
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Registrations')
-    processed_data = output.getvalue()
-    return processed_data
-
-# --- MAIN UI: REGISTRATION FORM ---
-st.title("Event Registration / इवेंट पंजीकरण")
-st.write("Please fill out the details below / कृपया नीचे विवरण भरें:")
-
-with st.form("registration_form"):
-    col1, col2 = st.columns(2)
+# --- ADMIN DASHBOARD (SIDEBAR) ---
+with st.sidebar:
+    st.header("Admin Dashboard")
+    admin_pass = st.text_input("Enter Admin Password", type="password")
     
-    with col1:
-        name = st.text_input("Name / नाम")
-        designation = st.text_input("Designation / पद")
-        place = st.text_input("Place / स्थान")
-        
-    with col2:
-        railway_zone = st.selectbox(
-            "CR/WR / मध्य रेलवे/पश्चिम रेलवे", 
-            ["Central Railway (CR)", "Western Railway (WR)", "Other / अन्य"]
-        )
-        competition = st.text_input("Competition Name / प्रतियोगिता का नाम")
-        comp_date = st.date_input("Date / दिनांक", datetime.today())
-        
-    submit_button = st.form_submit_button("Submit / जमा करें")
-
-    if submit_button:
-        if not name or not designation or not place or not competition:
-            st.warning("Please fill all fields / कृपया सभी फ़ील्ड भरें")
-        else:
-            # Generate Unique Code
-            unique_code = generate_unique_code()
-            
-            # Prepare data payload
-            data = {
-                "name": name,
-                "designation": designation,
-                "place": place,
-                "railway_zone": railway_zone,
-                "competition": competition,
-                "date": str(comp_date),
-                "unique_code": unique_code
-            }
-            
-            # Insert into Supabase
-            try:
-                response = supabase.table("registrations").insert(data).execute()
+    if admin_pass:
+        if admin_pass == st.secrets["ADMIN_PASSWORD"]:
+            st.success("Access Granted")
+            if st.button("Refresh Data"):
+                st.rerun()
                 
-                # Check for successful insertion
-                if len(response.data) > 0:
-                    st.success(f"Registration Successful! / पंजीकरण सफल!")
-                    st.info(f"### Your Unique Code / आपका विशिष्ट कोड: **{unique_code}**")
-                else:
-                    st.error("Failed to save data. Please try again. / डेटा सहेजने में विफल. कृपया पुनः प्रयास करें.")
-            except Exception as e:
-                st.error(f"Error / त्रुटि: {e}")
-
-
-# --- SIDEBAR: ADMIN DASHBOARD ---
-st.sidebar.title("Admin Access / व्यवस्थापक पहुंच")
-admin_password = st.sidebar.text_input("Enter Admin Password", type="password")
-
-# Check if password matches the one in secrets
-if admin_password == st.secrets.get("ADMIN_PASSWORD", "admin123"):
-    st.sidebar.success("Logged in successfully")
-    
-    st.divider()
-    st.header("Admin Dashboard: Registration Data")
-    
-    # Fetch Data from Supabase
-    try:
-        response = supabase.table("registrations").select("*").order("created_at", desc=True).execute()
-        data = response.data
-        
-        if data:
-            # Convert to Pandas DataFrame for easy viewing and export
-            df = pd.DataFrame(data)
-            
-            # Reorder columns for better readability (Optional)
-            cols = ['unique_code', 'name', 'designation', 'place', 'railway_zone', 'competition', 'date', 'created_at']
-            # Only keep columns that actually exist in the dataframe to avoid errors
-            df = df[[c for c in cols if c in df.columns]]
-            
-            st.dataframe(df, use_container_width=True)
-            
-            # Excel Export Button
-            excel_data = to_excel(df)
-            st.download_button(
-                label="Download Data as Excel / एक्सेल के रूप में डेटा डाउनलोड करें",
-                data=excel_data,
-                file_name=f'registrations_{datetime.today().strftime("%Y-%m-%d")}.xlsx',
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
+            # Fetch all registrations
+            res = supabase.table("registrations").select("*").execute()
+            if res.data:
+                df = pd.DataFrame(res.data)
+                df = df[['unique_code', 'name', 'designation', 'place', 'railway_zone', 'competition', 'date', 'created_at']]
+                
+                # Show total participants
+                st.write(f"**Total Registrations:** {len(df)}")
+                st.dataframe(df)
+                
+                # Download button
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Download Data as CSV",
+                    data=csv,
+                    file_name='registrations.csv',
+                    mime='text/csv',
+                )
+            else:
+                st.info("No registrations yet.")
         else:
-            st.info("No registrations found yet.")
-            
-    except Exception as e:
-        st.error(f"Failed to fetch data / डेटा लाने में विफल: {e}")
-elif admin_password:
-    st.sidebar.error("Incorrect Password")
+            st.error("Incorrect Password")
+
+# --- MAIN REGISTRATION UI ---
+st.title("Hindi Divas Registration / हिंदी दिवस पंजीकरण")
+st.markdown("Please fill out the form below to generate your unique 4-digit enrollment code. / अपना विशिष्ट 4-अंकीय नामांकन कोड प्राप्त करने के लिए कृपया नीचे दिया गया फॉर्म भरें।")
+st.divider()
+
+# 1. Slide-down Menu for Competition
+competition_selection = st.selectbox(
+    "Select Competition / प्रतियोगिता चुनें *",
+    options=list(COMPETITIONS.keys())
+)
+
+# 2. Automatically Display Corresponding Date
+event_date = COMPETITIONS[competition_selection]
+# Format the date for Indian standard viewing (DD/MM/YYYY)
+display_date = f"{event_date[-2:]}/{event_date[5:7]}/{event_date[:4]}"
+st.info(f"📅 **Scheduled Date / निर्धारित तिथि:** {display_date}")
+st.divider()
+
+# 3. User Details
+name = st.text_input("Full Name / पूरा नाम *")
+designation = st.text_input("Designation / पदनाम *")
+place = st.text_input("Place of Posting / तैनाती का स्थान *")
+
+railway_zone = st.radio(
+    "Railway Zone / रेलवे जोन *",
+    options=["Central Railway (CR)", "Western Railway (WR)"]
+)
+
+# 4. Submit Button
+if st.button("Register & Generate Code / पंजीकरण करें और कोड बनाएं", type="primary"):
+    if not name or not designation or not place:
+        st.error("Please fill in all mandatory fields. / कृपया सभी अनिवार्य फ़ील्ड भरें।")
+    else:
+        with st.spinner("Generating Code... / कोड जनरेट हो रहा है..."):
+            # Generate a unique 4-digit code
+            code_is_unique = False
+            while not code_is_unique:
+                new_code = str(random.randint(1000, 9999))
+                # Check if code already exists in database
+                check = supabase.table("registrations").select("id").eq("unique_code", new_code).execute()
+                if len(check.data) == 0:
+                    code_is_unique = True
+
+            # Save to Database
+            try:
+                data = {
+                    "name": name,
+                    "designation": designation,
+                    "place": place,
+                    "railway_zone": railway_zone,
+                    "competition": competition_selection,
+                    "date": event_date,
+                    "unique_code": new_code
+                }
+                supabase.table("registrations").insert(data).execute()
+                
+                st.success("Registration Successful! / पंजीकरण सफल!")
+                st.info(f"### Your Unique Code / आपका विशिष्ट कोड: **{new_code}**")
+                st.warning("Please write this code down. You will need it to start your exam. / कृपया यह कोड लिख लें। अपनी परीक्षा शुरू करने के लिए आपको इसकी आवश्यकता होगी।")
+                
+            except Exception as e:
+                st.error(f"Failed to register / पंजीकरण विफल: {e}")
