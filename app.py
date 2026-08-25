@@ -1,10 +1,12 @@
 import streamlit as st
 import random
 import pandas as pd
+import urllib.request
+import time
 from supabase import create_client, Client
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Registration / पंजीकरण", layout="centered")
+st.set_page_config(page_title="पंजीकरण / Registration", layout="centered")
 
 # --- DATABASE CONNECTION ---
 @st.cache_resource
@@ -16,7 +18,7 @@ def init_connection() -> Client:
 try:
     supabase = init_connection()
 except Exception as e:
-    st.error(f"Database connection failed / डेटाबेस कनेक्शन विफल: {e}")
+    st.error(f"डेटाबेस कनेक्शन विफल / Database connection failed: {e}")
     st.stop()
 
 # --- COMPETITIONS & DATES ---
@@ -32,13 +34,13 @@ COMPETITIONS = {
 
 # --- ADMIN DASHBOARD (SIDEBAR) ---
 with st.sidebar:
-    st.header("Admin Dashboard")
-    admin_pass = st.text_input("Enter Admin Password", type="password")
+    st.header("व्यवस्थापक डैशबोर्ड / Admin Dashboard")
+    admin_pass = st.text_input("व्यवस्थापक पासवर्ड दर्ज करें / Enter Admin Password", type="password")
     
     if admin_pass:
         if admin_pass == st.secrets["ADMIN_PASSWORD"]:
-            st.success("Access Granted")
-            if st.button("Refresh Data"):
+            st.success("पहुंच स्वीकृत / Access Granted")
+            if st.button("डेटा रीफ्रेश करें / Refresh Data"):
                 st.rerun()
                 
             # Fetch all registrations
@@ -48,66 +50,87 @@ with st.sidebar:
                 df = df[['unique_code', 'name', 'designation', 'place', 'railway_zone', 'competition', 'date', 'created_at']]
                 
                 # Show total participants
-                st.write(f"**Total Registrations:** {len(df)}")
+                st.write(f"**कुल पंजीकरण / Total Registrations:** {len(df)}")
                 st.dataframe(df)
                 
                 # Download button
                 csv = df.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    label="Download Data as CSV",
+                    label="CSV के रूप में डेटा डाउनलोड करें / Download Data as CSV",
                     data=csv,
                     file_name='registrations.csv',
                     mime='text/csv',
                 )
             else:
-                st.info("No registrations yet.")
+                st.info("अभी तक कोई पंजीकरण नहीं / No registrations yet.")
         else:
-            st.error("Incorrect Password")
+            st.error("गलत पासवर्ड / Incorrect Password")
 
 # --- MAIN REGISTRATION UI ---
-st.title("Hindi Divas Registration / हिंदी दिवस पंजीकरण")
-st.markdown("Please fill out the form below to generate your unique 4-digit enrollment code. / अपना विशिष्ट 4-अंकीय नामांकन कोड प्राप्त करने के लिए कृपया नीचे दिया गया फॉर्म भरें।")
+st.markdown("<h2 style='text-align: center; color: #ff4b4b;'>हिंदी पखवाड़ा 2026 की प्रतियोगिताओं में आपका स्वागत है।</h2>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align: center;'>Welcome to the competitions of Hindi Pakhwada 2026.</h4>", unsafe_allow_html=True)
+st.divider()
+
+# --- INTERNET SPEED TEST ---
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.title("हिंदी दिवस पंजीकरण / Hindi Divas Registration")
+with col2:
+    if st.button("🌐 इंटरनेट जांचें / Check Internet"):
+        with st.spinner("जांच हो रही है..."):
+            try:
+                start_time = time.time()
+                # Attempt to connect to a reliable global server
+                urllib.request.urlopen('https://www.google.com', timeout=3)
+                end_time = time.time()
+                latency = round((end_time - start_time) * 1000)
+                
+                # If it takes less than 800ms, it is a good connection
+                if latency < 800:
+                    st.success(f"आपका इंटरनेट काम कर रहा है।\n\n(Speed/Ping: {latency}ms - Good)")
+                else:
+                    st.warning(f"आपका इंटरनेट काम कर रहा है, लेकिन गति धीमी है।\n\n(Speed/Ping: {latency}ms - Slow)")
+            except:
+                st.error("इंटरनेट काम नही कर रहा है।")
+
+st.markdown("अपना विशिष्ट 4-अंकीय नामांकन कोड प्राप्त करने के लिए कृपया नीचे दिया गया फॉर्म भरें। / Please fill out the form below to generate your unique 4-digit enrollment code.")
 st.divider()
 
 # 1. Slide-down Menu for Competition
 competition_selection = st.selectbox(
-    "Select Competition / प्रतियोगिता चुनें *",
+    "प्रतियोगिता चुनें / Select Competition *",
     options=list(COMPETITIONS.keys())
 )
 
 # 2. Automatically Display Corresponding Date
 event_date = COMPETITIONS[competition_selection]
-# Format the date for Indian standard viewing (DD/MM/YYYY)
 display_date = f"{event_date[-2:]}/{event_date[5:7]}/{event_date[:4]}"
-st.info(f"📅 **Scheduled Date / निर्धारित तिथि:** {display_date}")
+st.info(f"📅 **निर्धारित तिथि / Scheduled Date:** {display_date}")
 st.divider()
 
 # 3. User Details
-name = st.text_input("Full Name / पूरा नाम *")
-designation = st.text_input("Designation / पदनाम *")
-place = st.text_input("Place of Posting / तैनाती का स्थान *")
+name = st.text_input("पूरा नाम / Full Name *")
+designation = st.text_input("पदनाम / Designation *")
+place = st.text_input("तैनाती का स्थान / Place of Posting *")
 
 railway_zone = st.radio(
-    "Railway Zone / रेलवे जोन *",
-    options=["Central Railway (CR)", "Western Railway (WR)"]
+    "रेलवे जोन / Railway Zone *",
+    options=["मध्य रेलवे (CR) / Central Railway (CR)", "पश्चिम रेलवे (WR) / Western Railway (WR)"]
 )
 
 # 4. Submit Button
-if st.button("Register & Generate Code / पंजीकरण करें और कोड बनाएं", type="primary"):
+if st.button("पंजीकरण करें और कोड बनाएं / Register & Generate Code", type="primary"):
     if not name or not designation or not place:
-        st.error("Please fill in all mandatory fields. / कृपया सभी अनिवार्य फ़ील्ड भरें।")
+        st.error("कृपया सभी अनिवार्य फ़ील्ड भरें। / Please fill in all mandatory fields.")
     else:
-        with st.spinner("Generating Code... / कोड जनरेट हो रहा है..."):
-            # Generate a unique 4-digit code
+        with st.spinner("कोड जनरेट हो रहा है... / Generating Code..."):
             code_is_unique = False
             while not code_is_unique:
                 new_code = str(random.randint(1000, 9999))
-                # Check if code already exists in database
                 check = supabase.table("registrations").select("id").eq("unique_code", new_code).execute()
                 if len(check.data) == 0:
                     code_is_unique = True
 
-            # Save to Database
             try:
                 data = {
                     "name": name,
@@ -120,9 +143,9 @@ if st.button("Register & Generate Code / पंजीकरण करें औ�
                 }
                 supabase.table("registrations").insert(data).execute()
                 
-                st.success("Registration Successful! / पंजीकरण सफल!")
-                st.info(f"### Your Unique Code / आपका विशिष्ट कोड: **{new_code}**")
-                st.warning("Please write this code down. You will need it to start your exam. / कृपया यह कोड लिख लें। अपनी परीक्षा शुरू करने के लिए आपको इसकी आवश्यकता होगी।")
+                st.success("पंजीकरण सफल! / Registration Successful!")
+                st.info(f"### आपका विशिष्ट कोड / Your Unique Code: **{new_code}**")
+                st.warning("कृपया यह कोड लिख लें। अपनी परीक्षा शुरू करने के लिए आपको इसकी आवश्यकता होगी। / Please write this code down. You will need it to start your exam.")
                 
             except Exception as e:
-                st.error(f"Failed to register / पंजीकरण विफल: {e}")
+                st.error(f"पंजीकरण विफल / Failed to register: {e}")
