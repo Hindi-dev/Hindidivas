@@ -55,7 +55,7 @@ COMPETITIONS = {
     "picture": {
         "name": "तस्वीर क्या बोलती है", 
         "time_limit_mins": 30,
-        "competition_date": "2026-08-25",
+        "competition_date": "2026-09-25",
         "question": f"{base_url}picture_question.pdf"
     },
     "drafting": {
