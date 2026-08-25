@@ -9,10 +9,9 @@ st.set_page_config(page_title="Competition Enrollment / प्रतियोग
 # --- DATABASE CONNECTION ---
 @st.cache_resource
 def init_connection() -> Client:
-    url = st.secrets["https://cyjbgwzpdsoiunzccwpm.supabase.co"]
-    key = st.secrets["sb_publishable_5PlBs-7hMVMhLMM-VoWyIQ_6HuKVkIC"]
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
-
 try:
     supabase = init_connection()
 except Exception as e:
