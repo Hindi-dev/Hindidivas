@@ -74,7 +74,7 @@ st.divider()
 # --- INTERNET SPEED TEST ---
 col1, col2 = st.columns([3, 1])
 with col1:
-    st.title("हिंदी दिवस पंजीकरण / Hindi Divas Registration")
+    st.title("हिंदी पखवाड़ा प्रतियोगिता पंजीकरण / Hindi Pakhwada Pratiyogita Registration")
 with col2:
     if st.button("🌐 इंटरनेट जांचें / Check Internet"):
         with st.spinner("जांच हो रही है..."):
