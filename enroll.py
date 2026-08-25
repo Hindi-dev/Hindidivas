@@ -19,7 +19,7 @@ except Exception as e:
     st.stop()
 
 # --- COMPETITION CONFIGURATION (07 EVENTS) ---
-base_url = f"{st.secrets.get('SUPABASE_URL', '')}/storage/v1/object/public/competition_documents/"
+base_url = f"{st.secrets.get('SUPABASE_URL', '').rstrip('/')}/storage/v1/object/public/competition_documents/"
 
 COMPETITIONS = {
     "idioms": {
