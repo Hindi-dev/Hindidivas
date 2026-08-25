@@ -25,7 +25,7 @@ COMPETITIONS = {
     "idioms": {
         "name": "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली", 
         "time_limit_mins": 10,
-        "competition_date": "2026-09-17",
+        "competition_date": "2026-08-25",
         "question": f"{base_url}idioms_question.pdf"
     },
     "dictionary": {
