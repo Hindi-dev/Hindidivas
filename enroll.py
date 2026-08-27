@@ -41,7 +41,7 @@ COMPETITIONS = {
     "typing": {
         "name": "हिंदी टंकण प्रतियोगिता",
         "time_limit_mins": 10,
-        "competition_date": "2026-09-21", # यदि अभी टेस्ट कर रहे हैं तो इसे "2026-08-27" कर लें
+        "competition_date": "2026-08-27", # यदि अभी टेस्ट कर रहे हैं तो इसे "2026-08-27" कर लें
         "question": f"{base_url}typing.html"
     },
     "essay": {
