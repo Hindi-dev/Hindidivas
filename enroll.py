@@ -138,18 +138,14 @@ if unique_code:
         # टाइपिंग के लिए HTML को पेज के अंदर ही चलाएं
         if comp_slug == "typing":
             st.info("👇 नीचे दिए गए बॉक्स में अपना टंकण (Typing) टेस्ट दें:")
+            # --> यह नई लाइन जोड़ें <--
+            st.warning("📸 **महत्वपूर्ण:** टेस्ट पूरा होने के बाद, अपने अंतिम 'स्कोर कार्ड' का स्क्रीनशॉट (Screenshot) लें और उसे नीचे दिए गए अपलोड बॉक्स में जमा करें!")
             try:
-                # सीधे GitHub (लोकल) से HTML फाइल पढ़ें
                 with open("typing.html", "r", encoding="utf-8") as f:
                     html_content = f.read()
-                # इसे एक असली वेबपेज की तरह रेंडर करें
                 components.html(html_content, height=600, scrolling=True)
             except FileNotFoundError:
-                st.error("❌ typing.html फ़ाइल नहीं मिली! कृपया इसे GitHub पर अपलोड करें।")
-        else:
-            # बाकी PDF प्रतियोगिताओं के लिए लिंक दिखाएं
-            question_link = competition_info["question"]
-            st.markdown(f"**[📄 प्रश्न पत्र देखने/डाउनलोड करने के लिए यहाँ क्लिक करें]({question_link})**")
+                st.error("❌ typing.html फ़ाइल नहीं मिली!")
             
         st.divider()
 
