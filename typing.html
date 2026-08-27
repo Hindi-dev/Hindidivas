@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <title>20-Minute Hindi Typing Test</title>
+    <!-- Import Sanscript.js for Phonetic Transliteration -->
+    <script src="https://cdn.jsdelivr.net/npm/@indic-transliteration/sanscript"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; background-color: #f4f6f8; }
+        
+        /* --- Login Screen Styles --- */
+        #login-screen {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 60vh; text-align: center;
+        }
+        .login-box {
+            background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .login-box h2 { margin-top: 0; color: #333; }
+        #candidate-code {
+            font-size: 24px; padding: 10px; width: 150px; text-align: center;
+            letter-spacing: 5px; border: 2px solid #ccc; border-radius: 5px; margin: 20px 0; outline: none;
+        }
+        #candidate-code:focus { border-color: #00acc1; }
+        .start-btn {
+            background: #00acc1; color: white; border: none; padding: 12px 24px;
+            font-size: 18px; border-radius: 5px; cursor: pointer; transition: background 0.2s;
+        }
+        .start-btn:hover { background: #00838f; }
+        .error-msg { color: red; font-size: 14px; display: none; margin-bottom: 15px; }
+
+        /* --- Main App Styles --- */
+        #main-app { display: none; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        .candidate-info { font-size: 18px; font-weight: bold; color: #555; }
+        select { padding: 8px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; outline: none; }
+        #timer { font-size: 28px; font-weight: bold; color: #d32f2f; }
+        
+        #text-display { 
+            font-size: 22px; line-height: 1.8; padding: 15px; border: 1px solid #ccc; 
+            border-radius: 5px; margin-bottom: 20px; background: #f9f9f9; user-select: none; 
+            display: flex; flex-wrap: wrap; gap: 5px; height: 160px; overflow-y: hidden; position: relative;
+        }
+        
+        .word { padding: 2px 4px; border-radius: 3px; transition: background 0.2s; }
+        .current-word { background-color: #e0f7fa; font-weight: bold; border-bottom: 3px solid #00acc1; }
+        .correct { color: #2e7d32; }
+        .incorrect { color: #d32f2f; text-decoration: underline; background-color: #ffebee; }
+        
+        #input-box { width: 100%; font-size: 22px; padding: 12px; box-sizing: border-box; border: 2px solid #00acc1; border-radius: 5px; outline: none; }
+        #input-box:disabled { background: #eeeeee; border-color: #cccccc; cursor: not-allowed; }
+        
+        #results { display: none; margin-top: 20px; padding: 20px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 5px; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center; margin-top: 15px; }
+        .metric-box { background: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .metric-value { font-size: 28px; font-weight: bold; color: #2e7d32; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. LOGIN SCREEN -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2>Candidate Authentication</h2>
+            <p>Please enter your 4-digit unique code to begin.</p>
+            <div id="error-msg" class="error-msg">Invalid Code. Must be exactly 4 digits.</div>
+            <input type="text" id="candidate-code" maxlength="4" placeholder="0000" autocomplete="off" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            <br>
+            <button class="start-btn" onclick="verifyAndStart()">Enter Test Portal</button>
+        </div>
+    </div>
+
+    <!-- 2. MAIN TYPING TEST APP (Hidden by default) -->
+    <div id="main-app">
+        <div class="header">
+            <div class="candidate-info">ID: <span id="display-candidate-id" style="color: #00acc1;">---</span></div>
+            <select id="keyboard-layout">
+                <option value="inscript">Hindi Inscript Keyboard</option>
+                <option value="phonetic">Hindi Phonetic (ITRANS)</option>
+            </select>
+            <div id="timer">20:00</div>
+        </div>
+
+        <div id="text-display"></div>
+        <input type="text" id="input-box" placeholder="यहाँ टाइप करना शुरू करें (Start typing here)..." autocomplete="off">
+        
+        <div id="results">
+            <h3 style="margin-top:0; color: #2e7d32;">Test Complete</h3>
+            <div class="metrics-grid">
+                <div class="metric-box">
+                    <div>Gross WPM</div>
+                    <div class="metric-value" id="gross-wpm">0</div>
+                </div>
+                <div class="metric-box">
+                    <div>Net WPM</div>
+                    <div class="metric-value" id="net-wpm">0</div>
+                </div>
+                <div class="metric-box">
+                    <div>Accuracy</div>
+                    <div class="metric-value"><span id="accuracy">0</span>%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- 0. Candidate Authentication Logic ---
+    let candidateID = null;
+
+    function verifyAndStart() {
+        const codeInput = document.getElementById('candidate-code').value;
+        const errorMsg = document.getElementById('error-msg');
+        
+        if (codeInput.length === 4 && /^\d{4}$/.test(codeInput)) {
+            candidateID = codeInput;
+            document.getElementById('display-candidate-id').innerText = candidateID;
+            
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+            
+            document.getElementById('input-box').focus();
+        } else {
+            errorMsg.style.display = 'block';
+        }
+    }
+
+    document.getElementById('candidate-code').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') verifyAndStart();
+    });
+
+
+    // --- 1. High-Quality Text Corpus ---
+    const corpus = `
+    भारत का इतिहास बहुत समृद्ध और प्राचीन है। यह सिंधु घाटी सभ्यता से शुरू होता है, जो दुनिया की सबसे पुरानी सभ्यताओं में से एक है। 
+    भारतीय संविधान दुनिया का सबसे लंबा लिखित संविधान है, जिसे २६ जनवरी १९५० को लागू किया गया था। इसमें नागरिकों के मौलिक अधिकारों 
+    और कर्तव्यों का स्पष्ट वर्णन है। भौगोलिक दृष्टि से, भारत विविधताओं वाला देश है। इसके उत्तर में विशाल हिमालय पर्वत श्रृंखला है, 
+    जो देश को ठंडी हवाओं से बचाती है। दक्षिण में विशाल हिंद महासागर है। गंगा, यमुना, गोदावरी, और नर्मदा जैसी नदियाँ कृषि के लिए 
+    जीवनदायिनी हैं। आधुनिक युग में, भारतीय अंतरिक्ष अनुसंधान संगठन (इसरो) ने अंतरिक्ष विज्ञान के क्षेत्र में अभूतपूर्व प्रगति की है। 
+    चंद्रयान और मंगलयान मिशन भारत की वैज्ञानिक क्षमता के उत्कृष्ट उदाहरण हैं। कृषि आज भी भारतीय अर्थव्यवस्था की रीढ़ है, 
+    जहाँ लगभग ५० प्रतिशत से अधिक आबादी प्रत्यक्ष या अप्रत्यक्ष रूप से खेती पर निर्भर है। सूचना प्रौद्योगिकी (आईटी) के क्षेत्र में 
+    भी भारत ने वैश्विक स्तर पर अपनी पहचान बनाई है। विविधता में एकता भारत की सबसे बड़ी ताकत है। यहाँ विभिन्न धर्मों, जातियों, 
+    और भाषाओं के लोग एक साथ शांतिपूर्ण तरीके से रहते हैं। हमें अपने देश की अखंडता और संप्रभुता की रक्षा के लिए हमेशा 
+    तत्पर रहना चाहिए। शिक्षा, स्वास्थ्य, और रोजगार के क्षेत्र में निरंतर विकास ही एक सशक्त राष्ट्र के निर्माण का मार्ग प्रशस्त करेगा।
+    `;
+
+    // --- 2. Dynamic 1500-Word Generator ---
+    function generateTestPassage(targetWordCount) {
+        const baseWords = corpus.replace(/\n/g, ' ').trim().split(/\s+/).filter(w => w.length > 0);
+        let testWords = [];
+        while (testWords.length < targetWordCount) {
+            testWords = testWords.concat(baseWords);
+        }
+        return testWords.slice(0, targetWordCount);
+    }
+
+    let referenceText = generateTestPassage(1500);
+    
+    // --- 3. App State & Configuration ---
+    let TIME_LIMIT = 1200; // 20 minutes
+    let timeLeft = TIME_LIMIT;
+    let timerInterval = null;
+    let testActive = false;
+    let totalKeystrokes = 0;
+    let uncorrectedErrors = 0;
+    let currentWordIndex = 0;
+    let phoneticBuffer = ""; // Hidden buffer for real-time phonetic typing
+
+    const displayEl = document.getElementById("text-display");
+    const inputEl = document.getElementById("input-box");
+    const timerEl = document.getElementById("timer");
+    const resultsEl = document.getElementById("results");
+    const layoutSelect = document.getElementById("keyboard-layout");
+
+    // Clear phonetic buffer if layout is changed mid-test
+    layoutSelect.addEventListener("change", function() {
+        inputEl.value = ""; 
+        phoneticBuffer = ""; 
+        inputEl.focus();
+    });
+
+    function renderText() {
+        displayEl.innerHTML = referenceText.map((word, index) => 
+            `<span class="word ${index === 0 ? 'current-word' : ''}" id="word-${index}">${word}</span>`
+        ).join("");
+    }
+    renderText();
+
+    function scrollToCurrentWord() {
+        const activeWordEl = document.getElementById(`word-${currentWordIndex}`);
+        if (activeWordEl) {
+            activeWordEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // --- 4. Inscript Mapping Dictionary ---
+    const inscriptMap = {
+        "q": "ौ", "Q": "औ", "w": "ै", "W": "ऐ", "e": "ा", "E": "आ", "r": "ी", "R": "ई",
+        "t": "ू", "T": "ऊ", "y": "ब", "Y": "भ", "u": "ह", "U": "ङ", "i": "ग", "I": "घ",
+        "o": "द", "O": "ध", "p": "ज", "P": "झ", "[": "ड", "{": "ढ", "]": "़", "}": "ञ",
+        "a": "ो", "A": "ओ", "s": "े", "S": "ए", "d": "्", "D": "अ", "f": "ि", "F": "इ",
+        "g": "ु", "G": "उ", "h": "प", "H": "फ", "j": "र", "J": "ऱ", "k": "क", "K": "ख",
+        "l": "त", "L": "थ", ";": "च", ":": "छ", "'": "ट", "\"": "ठ", "z": "े", "Z": "ॆ",
+        "x": "ं", "X": "ँ", "c": "म", "C": "ण", "v": "न", "V": "ऩ", "b": "व", "B": "ऴ",
+        "n": "ल", "N": "ळ", "m": "स", "M": "श", ",": ",", "<": "ष", ".": ".", ">": "।",
+        "/": "य", "?": "य़", "1": "१", "2": "२", "3": "३", "4": "४", "5": "५", 
+        "6": "६", "7": "७", "8": "८", "9": "९", "0": "०"
+    };
+
+    // --- 5. Input Handling & Real-Time Translation ---
+    inputEl.addEventListener("keydown", function(e) {
+        if (e.ctrlKey && (e.key === 'c' || e.key === 'v')) {
+            e.preventDefault(); return;
+        }
+
+        if (!testActive && timeLeft === TIME_LIMIT && e.key.length === 1) {
+            startTimer();
+            testActive = true;
+        }
+
+        const layout = layoutSelect.value;
+        
+        // --- INSCRIPT LOGIC ---
+        if (layout === "inscript" && inscriptMap[e.key]) {
+            e.preventDefault(); 
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            const text = this.value;
+            this.value = text.slice(0, start) + inscriptMap[e.key] + text.slice(end);
+            this.selectionStart = this.selectionEnd = start + 1;
+            totalKeystrokes++;
+        }
+        // --- PHONETIC LOGIC (REAL-TIME) ---
+        else if (layout === "phonetic") {
+            if (e.key.length === 1 && !e.ctrlKey && !e.altKey) {
+                e.preventDefault();
+                phoneticBuffer += e.key; 
+                this.value = Sanscript.t(phoneticBuffer, 'itrans', 'devanagari');
+                totalKeystrokes++;
+            } 
+            else if (e.key === "Backspace") {
+                e.preventDefault();
+                phoneticBuffer = phoneticBuffer.slice(0, -1);
+                this.value = Sanscript.t(phoneticBuffer, 'itrans', 'devanagari');
+            }
+        }
+    });
+
+    // --- 6. Word Evaluation (Triggered on Spacebar) ---
+    inputEl.addEventListener("keyup", function(e) {
+        if (e.key === " ") {
+            let typedWord = this.value.trim(); 
+            if (typedWord === "") return; 
+
+            const targetWord = referenceText[currentWordIndex];
+            const wordSpan = document.getElementById(`word-${currentWordIndex}`);
+
+            if (typedWord === targetWord) {
+                wordSpan.classList.add("correct");
+            } else {
+                wordSpan.classList.add("incorrect");
+                uncorrectedErrors += Math.max(1, Math.abs(targetWord.length - typedWord.length)); 
+            }
+
+            wordSpan.classList.remove("current-word");
+            currentWordIndex++;
+            
+            this.value = ""; 
+            phoneticBuffer = ""; // Reset hidden buffer for the next word
+
+            if (currentWordIndex < referenceText.length) {
+                document.getElementById(`word-${currentWordIndex}`).classList.add("current-word");
+                scrollToCurrentWord();
+            } else {
+                endTest(); 
+            }
+        } 
+        else if (e.key.length === 1 && layoutSelect.value !== "phonetic" && !inscriptMap[e.key]) {
+             totalKeystrokes++;
+        }
+    });
+
+    // --- 7. Timer & Scoring Engine ---
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            let minutes = Math.floor(timeLeft / 60);
+            let seconds = timeLeft % 60;
+            timerEl.innerText = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+            if (timeLeft <= 0) endTest();
+        }, 1000);
+    }
+
+    function endTest() {
+        clearInterval(timerInterval);
+        inputEl.disabled = true;
+        testActive = false;
+
+        const timeElapsedInMinutes = (TIME_LIMIT - timeLeft) / 60;
+        let grossWPM = 0, netWPM = 0, accuracy = 0;
+
+        if (timeElapsedInMinutes > 0 && totalKeystrokes > 0) {
+            grossWPM = Math.round((totalKeystrokes / 5) / timeElapsedInMinutes);
+            netWPM = Math.round(grossWPM - (uncorrectedErrors / timeElapsedInMinutes));
+            accuracy = Math.round(((totalKeystrokes - uncorrectedErrors) / totalKeystrokes) * 100);
+        }
+        
+        document.getElementById("gross-wpm").innerText = grossWPM;
+        document.getElementById("net-wpm").innerText = netWPM > 0 ? netWPM : 0;
+        document.getElementById("accuracy").innerText = accuracy > 0 ? accuracy : 0;
+        
+        resultsEl.style.display = "block";
+    }
+</script>
+</body>
+</html>
