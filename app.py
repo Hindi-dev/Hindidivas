@@ -105,7 +105,7 @@ with col1:
 # दायीं ओर के 3 बॉक्स
 with col2:
     department = st.text_input("अनुभाग/विभाग (Department) *")
-    railway_zone = st.selectbox("रेलवे ज़ोन/मंडल (Railway Zone) *", ["मध्य रेल (CR)", "पश्चिम रेल (WR)", "उत्तर रेल (NR)", "अन्य"])
+    railway_zone = st.selectbox("रेलवे ज़ोन/मंडल (Railway Zone) *", ["मध्य रेल (CR)", "पश्चिम रेल (WR)", "अन्य"])
     phone = st.text_input("मोबाइल नंबर (Mobile) *", max_chars=10)
 
 st.markdown("<br>", unsafe_allow_html=True)
@@ -180,3 +180,32 @@ if st.button("पंजीकरण करें (Register Now)"):
                     
             except Exception as e:
                 st.error(f"पंजीकरण में त्रुटि: {e}")
+                # --- 6. एडमिन पैनल (Sidebar) ---
+with st.sidebar:
+    st.markdown("### ⚙️ व्यवस्थापक (Admin)")
+    admin_pass = st.text_input("पासवर्ड दर्ज करें", type="password")
+    
+    # यहाँ अपना पुराना पासवर्ड लिखें (जैसे: "Sabir#@23145" की जगह अपना पासवर्ड)
+    if admin_pass == "आपका-पुराना-पासवर्ड":
+        st.success("लॉगिन सफल!")
+        
+        if st.button("पंजीकरण डेटा देखें"):
+            import pandas as pd  # सुनिश्चित करें कि pandas इम्पोर्टेड है
+            try:
+                data = supabase.table("registrations").select("*").execute()
+                df = pd.DataFrame(data.data)
+                if not df.empty:
+                    st.dataframe(df)
+                    
+                    # CSV डाउनलोड करने का विकल्प
+                    csv = df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 डेटा डाउनलोड करें (CSV)",
+                        data=csv,
+                        file_name='registrations.csv',
+                        mime='text/csv',
+                    )
+                else:
+                    st.info("अभी तक कोई पंजीकरण नहीं हुआ है।")
+            except Exception as e:
+                st.error(f"डेटा लोड करने में त्रुटि: {e}")
