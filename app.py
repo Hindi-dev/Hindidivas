@@ -4,7 +4,7 @@ import random
 import pandas as pd
 
 # --- 1. पेज सेटिंग और प्रोफेशनल CSS ---
-st.set_page_config(page_title="पंजीकरण | हिंदी पखवाड़ा 2026", page_icon="🇮🇳", layout="centered")
+st.set_page_config(page_title="पंजीकरण | हिंदी पखवाड़ा 2026", page_icon="🇮🇳", layout="centered", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
