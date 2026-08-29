@@ -89,6 +89,8 @@ with col1:
 with col2:
     department = st.text_input("अनुभाग/विभाग (Department) *")
     phone = st.text_input("मोबाइल नंबर (Mobile) *", max_chars=10)
+    # एक नया बॉक्स 'स्थान (Place)' के लिए:
+place = st.text_input("स्थान/कार्यालय (Place) *")
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("#### 🎯 प्रतियोगिता चुनें")
