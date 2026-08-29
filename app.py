@@ -11,7 +11,9 @@ st.markdown("""
     /* स्ट्रीमलिट का डिफ़ॉल्ट मेनू और वॉटरमार्क छिपाएं */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    
+    /* पेज का हल्का बैकग्राउंड रंग */
+    /* (बाकी का CSS वैसा ही रहेगा) */
     
     /* पेज का हल्का बैकग्राउंड रंग */
     .stApp {
@@ -167,7 +169,7 @@ with st.sidebar:
     admin_pass = st.text_input("पासवर्ड दर्ज करें", type="password")
     
     # आप चाहें तो "admin123" को बदलकर अपना सुरक्षित पासवर्ड रख सकते हैं
-    if admin_pass == "admin123":
+    if admin_pass == "Sabir#@23145":
         st.success("लॉगिन सफल!")
         
         if st.button("पंजीकरण डेटा देखें"):
