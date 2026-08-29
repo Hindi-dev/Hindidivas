@@ -3,6 +3,55 @@ import random
 import pandas as pd
 import urllib.request
 import time
+import streamlit as st
+import datetime
+# ... (आपके बाकी imports जैसे supabase, random आदि) ...
+
+# 1. पेज का नाम और आइकन (यह सबसे ऊपर होना चाहिए)
+st.set_page_config(page_title="पंजीकरण | हिंदी पखवाड़ा 2026", page_icon="🇮🇳", layout="centered")
+
+# 2. कस्टम CSS (प्रोफेशनल लुक के लिए)
+st.markdown("""
+    <style>
+    /* स्ट्रीमलिट का डिफ़ॉल्ट मेनू और वॉटरमार्क छिपाएं */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* पेज का हल्का बैकग्राउंड रंग */
+    .stApp {
+        background-color: #F4F6F9;
+    }
+    
+    /* मेन फॉर्म का बॉक्स (Card style) */
+    .block-container {
+        background-color: white;
+        padding: 3rem 2rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        margin-top: 30px;
+    }
+
+    /* सबमिट बटन को शानदार बनाना */
+    .stButton>button {
+        width: 100%;
+        background-color: #004B87; /* नेवी ब्लू कलर */
+        color: white;
+        font-weight: bold;
+        border-radius: 8px;
+        border: none;
+        padding: 10px;
+        transition: all 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #003366;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
+        transform: scale(1.02);
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ... (यहाँ आपका Supabase Database कनेक्शन वाला पुराना कोड रहेगा) ...
 from supabase import create_client, Client
 
 # --- PAGE CONFIGURATION ---
