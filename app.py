@@ -193,7 +193,7 @@ with st.sidebar:
     admin_pass = st.text_input("पासवर्ड दर्ज करें", type="password")
     
     # यहाँ अपना पुराना पासवर्ड लिखें (जैसे: "Sabir#@23145" की जगह अपना पासवर्ड)
-    if admin_pass == "आपका-पुराना-पासवर्ड":
+    if admin_pass == "Sabir#@23145":
         st.success("लॉगिन सफल!")
         
         if st.button("पंजीकरण डेटा देखें"):
