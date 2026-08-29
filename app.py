@@ -84,16 +84,17 @@ st.markdown("#### 👤 अपनी व्यक्तिगत जानका�
 
 col1, col2 = st.columns(2)
 
-# बायीं ओर के 3 बॉक्स
+# बायीं ओर के 4 बॉक्स
 with col1:
     name = st.text_input("पूरा नाम (Full Name) *")
     designation = st.text_input("पदनाम (Designation) *")
     place = st.text_input("स्थान/कार्यालय (Place) *")
+    exam_date = st.date_input("तारीख (Date) *")  # <-- यहाँ तारीख का बॉक्स वापस आ गया
 
 # दायीं ओर के 3 बॉक्स
 with col2:
     department = st.text_input("अनुभाग/विभाग (Department) *")
-    railway_zone = st.selectbox("रेलवे ज़ोन/मंडल (Railway Zone) *", ["मध्य रेल (CR)", "पश्चिम रेल (WR)"])
+    railway_zone = st.selectbox("रेलवे ज़ोन/मंडल (Railway Zone) *", ["मध्य रेल (CR)", "पश्चिम रेल (WR)", "उत्तर रेल (NR)", "अन्य"])
     phone = st.text_input("मोबाइल नंबर (Mobile) *", max_chars=10)
 
 st.markdown("<br>", unsafe_allow_html=True)
@@ -116,7 +117,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. पंजीकरण और कोड जनरेशन लॉजिक ---
 if st.button("पंजीकरण करें (Register Now)"):
-    # चेक करें कि सभी फील्ड्स भरे गए हैं
     if not name or not designation or not department or not phone or not place or not railway_zone or len(selected_competitions) == 0:
         st.error("⚠️ कृपया सभी आवश्यक फ़ील्ड (*) भरें और कम से कम एक प्रतियोगिता चुनें।")
     elif len(phone) < 10:
@@ -124,19 +124,23 @@ if st.button("पंजीकरण करें (Register Now)"):
     else:
         with st.spinner("पंजीकरण हो रहा है... कृपया प्रतीक्षा करें"):
             try:
+                # तारीख को डेटाबेस में सेव करने लायक फॉर्मेट (Text/String) में बदलना
+                date_str = exam_date.strftime("%Y-%m-%d")
+                
                 existing_user = supabase.table("registrations").select("unique_code").eq("phone", phone).execute()
                 comps_string = ", ".join(selected_competitions)
 
                 if len(existing_user.data) > 0:
-                    # पुराना यूजर: डेटा अपडेट करें
+                    # पुराना यूजर: डेटा अपडेट करें (तारीख के साथ)
                     unique_code = existing_user.data[0]["unique_code"]
                     supabase.table("registrations").update({
                         "competition": comps_string,
                         "name": name,
                         "designation": designation,
                         "department": department,
-                        "place": place,                   # नया फील्ड
-                        "railway_zone": railway_zone      # नया फील्ड
+                        "place": place,
+                        "railway_zone": railway_zone,
+                        "date": date_str                   # <-- तारीख अपडेट होगी
                     }).eq("phone", phone).execute()
                     
                     st.info("📌 आपका मोबाइल नंबर पहले से पंजीकृत है। आपकी जानकारी अपडेट कर दी गई है।")
@@ -144,7 +148,7 @@ if st.button("पंजीकरण करें (Register Now)"):
                     st.warning("परीक्षा के दिन लॉग इन करने के लिए कृपया इसी कोड का उपयोग करें।")
                 
                 else:
-                    # नया यूजर: डेटा इन्सर्ट करें
+                    # नया यूजर: डेटा इन्सर्ट करें (तारीख के साथ)
                     unique_code = str(random.randint(1000, 9999))
                     supabase.table("registrations").insert({
                         "unique_code": unique_code,
@@ -153,8 +157,9 @@ if st.button("पंजीकरण करें (Register Now)"):
                         "department": department,
                         "phone": phone,
                         "competition": comps_string,
-                        "place": place,                   # नया फील्ड
-                        "railway_zone": railway_zone      # नया फील्ड
+                        "place": place,
+                        "railway_zone": railway_zone,
+                        "date": date_str                   # <-- तारीख सेव होगी
                     }).execute()
                     
                     st.success(f"🎉 पंजीकरण सफल! आपका 4-अंकीय कोड है: **{unique_code}**")
@@ -163,31 +168,3 @@ if st.button("पंजीकरण करें (Register Now)"):
                     
             except Exception as e:
                 st.error(f"पंजीकरण में त्रुटि: {e}")
-# --- 6. एडमिन पैनल (Sidebar) ---
-with st.sidebar:
-    st.markdown("### ⚙️ व्यवस्थापक (Admin)")
-    admin_pass = st.text_input("पासवर्ड दर्ज करें", type="password")
-    
-    # आप चाहें तो "admin123" को बदलकर अपना सुरक्षित पासवर्ड रख सकते हैं
-    if admin_pass == "Sabir#@23145":
-        st.success("लॉगिन सफल!")
-        
-        if st.button("पंजीकरण डेटा देखें"):
-            try:
-                data = supabase.table("registrations").select("*").execute()
-                df = pd.DataFrame(data.data)
-                if not df.empty:
-                    st.dataframe(df)
-                    
-                    # CSV डाउनलोड करने का विकल्प
-                    csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 डेटा डाउनलोड करें (CSV)",
-                        data=csv,
-                        file_name='registrations.csv',
-                        mime='text/csv',
-                    )
-                else:
-                    st.info("अभी तक कोई पंजीकरण नहीं हुआ है।")
-            except Exception as e:
-                st.error(f"डेटा लोड करने में त्रुटि: {e}")
