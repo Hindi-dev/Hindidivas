@@ -82,19 +82,17 @@ st.markdown("#### 👤 अपनी व्यक्तिगत जानका�
 
 col1, col2 = st.columns(2)
 
+# बायीं ओर के 3 बॉक्स
 with col1:
     name = st.text_input("पूरा नाम (Full Name) *")
     designation = st.text_input("पदनाम (Designation) *")
+    place = st.text_input("स्थान/कार्यालय (Place) *")
 
+# दायीं ओर के 3 बॉक्स
 with col2:
     department = st.text_input("अनुभाग/विभाग (Department) *")
-    # 'अनुभाग/विभाग' के ठीक नीचे यह जोड़ें:
     railway_zone = st.selectbox("रेलवे ज़ोन/मंडल (Railway Zone) *", ["मध्य रेल (CR)", "पश्चिम रेल (WR)", "उत्तर रेल (NR)", "अन्य"])
-# और नीचे insert वाले हिस्से में इसे भी जोड़ दें:
-# "railway_zone": railway_zone,
     phone = st.text_input("मोबाइल नंबर (Mobile) *", max_chars=10)
-    # एक नया बॉक्स 'स्थान (Place)' के लिए:
-    place = st.text_input("स्थान/कार्यालय (Place) *")
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("#### 🎯 प्रतियोगिता चुनें")
@@ -116,34 +114,35 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # --- 5. पंजीकरण और कोड जनरेशन लॉजिक ---
 if st.button("पंजीकरण करें (Register Now)"):
-    if not name or not designation or not department or not phone or len(selected_competitions) == 0:
+    # चेक करें कि सभी फील्ड्स भरे गए हैं
+    if not name or not designation or not department or not phone or not place or not railway_zone or len(selected_competitions) == 0:
         st.error("⚠️ कृपया सभी आवश्यक फ़ील्ड (*) भरें और कम से कम एक प्रतियोगिता चुनें।")
     elif len(phone) < 10:
         st.error("⚠️ कृपया सही 10-अंकों का मोबाइल नंबर दर्ज करें।")
     else:
         with st.spinner("पंजीकरण हो रहा है... कृपया प्रतीक्षा करें"):
             try:
-                # चेक करें कि क्या यह मोबाइल नंबर पहले से मौजूद है
                 existing_user = supabase.table("registrations").select("unique_code").eq("phone", phone).execute()
-                
                 comps_string = ", ".join(selected_competitions)
 
                 if len(existing_user.data) > 0:
-                    # पुराना यूजर: केवल प्रतियोगिताएं अपडेट करें और पुराना कोड दिखाएं
+                    # पुराना यूजर: डेटा अपडेट करें
                     unique_code = existing_user.data[0]["unique_code"]
                     supabase.table("registrations").update({
                         "competition": comps_string,
                         "name": name,
                         "designation": designation,
-                        "department": department
+                        "department": department,
+                        "place": place,                   # नया फील्ड
+                        "railway_zone": railway_zone      # नया फील्ड
                     }).eq("phone", phone).execute()
                     
-                    st.info("📌 आपका मोबाइल नंबर पहले से पंजीकृत है। आपकी जानकारी और प्रतियोगिताएं अपडेट कर दी गई हैं।")
+                    st.info("📌 आपका मोबाइल नंबर पहले से पंजीकृत है। आपकी जानकारी अपडेट कर दी गई है।")
                     st.success(f"🔑 आपका 4-अंकीय कोड है: **{unique_code}**")
                     st.warning("परीक्षा के दिन लॉग इन करने के लिए कृपया इसी कोड का उपयोग करें।")
                 
                 else:
-                    # नया यूजर: नया कोड बनाएं
+                    # नया यूजर: डेटा इन्सर्ट करें
                     unique_code = str(random.randint(1000, 9999))
                     supabase.table("registrations").insert({
                         "unique_code": unique_code,
@@ -151,7 +150,9 @@ if st.button("पंजीकरण करें (Register Now)"):
                         "designation": designation,
                         "department": department,
                         "phone": phone,
-                        "competition": comps_string
+                        "competition": comps_string,
+                        "place": place,                   # नया फील्ड
+                        "railway_zone": railway_zone      # नया फील्ड
                     }).execute()
                     
                     st.success(f"🎉 पंजीकरण सफल! आपका 4-अंकीय कोड है: **{unique_code}**")
@@ -160,7 +161,6 @@ if st.button("पंजीकरण करें (Register Now)"):
                     
             except Exception as e:
                 st.error(f"पंजीकरण में त्रुटि: {e}")
-
 # --- 6. एडमिन पैनल (Sidebar) ---
 with st.sidebar:
     st.markdown("### ⚙️ व्यवस्थापक (Admin)")
