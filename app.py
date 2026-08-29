@@ -6,7 +6,6 @@ import time
 import streamlit as st
 import datetime
 # ... (आपके बाकी imports जैसे supabase, random आदि) ...
-
 # 1. पेज का नाम और आइकन (यह सबसे ऊपर होना चाहिए)
 st.set_page_config(page_title="पंजीकरण | हिंदी पखवाड़ा 2026", page_icon="🇮🇳", layout="centered")
 
