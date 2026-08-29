@@ -91,7 +91,7 @@ with col1:
 # दायीं ओर के 3 बॉक्स
 with col2:
     department = st.text_input("अनुभाग/विभाग (Department) *")
-    railway_zone = st.selectbox("रेलवे ज़ोन/मंडल (Railway Zone) *", ["मध्य रेल (CR)", "पश्चिम रेल (WR)", "उत्तर रेल (NR)", "अन्य"])
+    railway_zone = st.selectbox("रेलवे ज़ोन/मंडल (Railway Zone) *", ["मध्य रेल (CR)", "पश्चिम रेल (WR)"])
     phone = st.text_input("मोबाइल नंबर (Mobile) *", max_chars=10)
 
 st.markdown("<br>", unsafe_allow_html=True)
