@@ -88,6 +88,11 @@ with col1:
 
 with col2:
     department = st.text_input("अनुभाग/विभाग (Department) *")
+    # 'अनुभाग/विभाग' के ठीक नीचे यह जोड़ें:
+railway_zone = st.selectbox("रेलवे ज़ोन/मंडल (Railway Zone) *", ["मध्य रेल (CR)", "पश्चिम रेल (WR)", "उत्तर रेल (NR)", "अन्य"])
+
+# और नीचे insert वाले हिस्से में इसे भी जोड़ दें:
+# "railway_zone": railway_zone,
     phone = st.text_input("मोबाइल नंबर (Mobile) *", max_chars=10)
     # एक नया बॉक्स 'स्थान (Place)' के लिए:
 place = st.text_input("स्थान/कार्यालय (Place) *")
