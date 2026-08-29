@@ -79,17 +79,28 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 4. पंजीकरण फॉर्म (Columns Layout) ---
+import datetime # (यदि ऊपर इम्पोर्ट नहीं है, तो इसे सबसे ऊपर रखें)
+
+# --- 4. प्रतियोगिताओं की तारीखों का डेटा (Mapping) ---
+COMPETITION_DATES = {
+    "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली": "17 सितम्बर 2026",
+    "हिंदी शब्दकोश से शब्द खोजना": "18 सितम्बर 2026",
+    "हिंदी टंकण प्रतियोगिता": "21 सितम्बर 2026",
+    "हिंदी निबंध प्रतियोगिता": "23 सितम्बर 2026",
+    "हिंदी वाद-विवाद प्रतियोगिता": "24 सितम्बर 2026",
+    "तस्वीर देखकर कहानी लिखना": "25 सितम्बर 2026",
+    "मसौदा लेखन प्रतियोगिता (Drafting)": "28 सितम्बर 2026"
+}
+
 st.markdown("#### 👤 अपनी व्यक्तिगत जानकारी दर्ज करें")
 
 col1, col2 = st.columns(2)
 
-# बायीं ओर के 4 बॉक्स
+# बायीं ओर के 3 बॉक्स
 with col1:
     name = st.text_input("पूरा नाम (Full Name) *")
     designation = st.text_input("पदनाम (Designation) *")
     place = st.text_input("स्थान/कार्यालय (Place) *")
-    exam_date = st.date_input("तारीख (Date) *")  # <-- यहाँ तारीख का बॉक्स वापस आ गया
 
 # दायीं ओर के 3 बॉक्स
 with col2:
@@ -102,16 +113,14 @@ st.markdown("#### 🎯 प्रतियोगिता चुनें")
 
 selected_competitions = st.multiselect(
     "आप किन-किन प्रतियोगिताओं में भाग लेना चाहते हैं? (एक साथ कई चुन सकते हैं) *",
-    options=[
-        "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली", 
-        "हिंदी शब्दकोश से शब्द खोजना", 
-        "हिंदी टंकण प्रतियोगिता", 
-        "हिंदी निबंध प्रतियोगिता", 
-        "हिंदी वाद-विवाद प्रतियोगिता", 
-        "तस्वीर देखकर कहानी लिखना", 
-        "मसौदा लेखन प्रतियोगिता (Drafting)"
-    ]
+    options=list(COMPETITION_DATES.keys()) # लिस्ट अपने आप ऊपर से आ जाएगी
 )
+
+# --- नया फीचर: ऑटोमैटिक तारीख दिखाना ---
+if selected_competitions:
+    st.markdown("📅 **आपकी चयनित प्रतियोगिताओं की तिथियां (Dates):**")
+    for comp in selected_competitions:
+        st.info(f"🔹 {comp} ➔ **{COMPETITION_DATES[comp]}**")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -124,14 +133,17 @@ if st.button("पंजीकरण करें (Register Now)"):
     else:
         with st.spinner("पंजीकरण हो रहा है... कृपया प्रतीक्षा करें"):
             try:
-                # तारीख को डेटाबेस में सेव करने लायक फॉर्मेट (Text/String) में बदलना
-                date_str = exam_date.strftime("%Y-%m-%d")
+                # रजिस्ट्रेशन की आज की तारीख (डेटाबेस के 'date' कॉलम का एरर रोकने के लिए)
+                today_date_str = datetime.datetime.now().strftime("%Y-%m-%d")
                 
                 existing_user = supabase.table("registrations").select("unique_code").eq("phone", phone).execute()
-                comps_string = ", ".join(selected_competitions)
+                
+                # प्रतियोगिता के साथ उसकी तारीख भी डेटाबेस में सेव करने के लिए:
+                comps_with_dates = [f"{c} ({COMPETITION_DATES[c]})" for c in selected_competitions]
+                comps_string = " | ".join(comps_with_dates)
 
                 if len(existing_user.data) > 0:
-                    # पुराना यूजर: डेटा अपडेट करें (तारीख के साथ)
+                    # पुराना यूजर: डेटा अपडेट करें
                     unique_code = existing_user.data[0]["unique_code"]
                     supabase.table("registrations").update({
                         "competition": comps_string,
@@ -140,7 +152,7 @@ if st.button("पंजीकरण करें (Register Now)"):
                         "department": department,
                         "place": place,
                         "railway_zone": railway_zone,
-                        "date": date_str                   # <-- तारीख अपडेट होगी
+                        "date": today_date_str             
                     }).eq("phone", phone).execute()
                     
                     st.info("📌 आपका मोबाइल नंबर पहले से पंजीकृत है। आपकी जानकारी अपडेट कर दी गई है।")
@@ -148,7 +160,7 @@ if st.button("पंजीकरण करें (Register Now)"):
                     st.warning("परीक्षा के दिन लॉग इन करने के लिए कृपया इसी कोड का उपयोग करें।")
                 
                 else:
-                    # नया यूजर: डेटा इन्सर्ट करें (तारीख के साथ)
+                    # नया यूजर: डेटा इन्सर्ट करें
                     unique_code = str(random.randint(1000, 9999))
                     supabase.table("registrations").insert({
                         "unique_code": unique_code,
@@ -159,7 +171,7 @@ if st.button("पंजीकरण करें (Register Now)"):
                         "competition": comps_string,
                         "place": place,
                         "railway_zone": railway_zone,
-                        "date": date_str                   # <-- तारीख सेव होगी
+                        "date": today_date_str            
                     }).execute()
                     
                     st.success(f"🎉 पंजीकरण सफल! आपका 4-अंकीय कोड है: **{unique_code}**")
