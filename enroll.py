@@ -118,7 +118,7 @@ start_time = competition_info["start_time"]
 end_time = competition_info["end_time"]
 
 if today_str != comp_date:
-    st.warning(f"🚫 यह प्रतियोगिता वर्तमान में बंद है। इसकी निर्धारित तिथि **{30.08.2026}** है।")
+    st.warning("🚫 यह प्रतियोगिता वर्तमान में बंद है। इसकी निर्धारित तिथि **{30.08.2026}** है।")
     st.stop()
 else:
     if current_time_str < start_time:
