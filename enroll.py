@@ -163,7 +163,7 @@ if unique_code:
     st.markdown("---")
     st.markdown("### 📝 बहुविकल्पीय प्रश्न (MCQs)")
     
-    # --- 🚀 नया लाइव टाइमर (JavaScript के साथ) ---
+    # --- 🚀 नया लाइव टाइमर (ऑटो-सबमिट फीचर के साथ) ---
     timer_html = f"""
     <div id="timer-container" style="background-color: #E3F2FD; border: 3px solid #2196F3; border-radius: 12px; padding: 15px; text-align: center; font-family: Arial, sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 10px;">
         <h3 style="margin: 0; color: #004B87; font-size: 20px;">⏳ समय शेष (Time Remaining)</h3>
@@ -178,7 +178,6 @@ if unique_code:
         }}
     </style>
     <script>
-        // Python से प्राप्त प्रतियोगिता का अंतिम समय (जैसे "14:35")
         var endTimeStr = "{end_time}"; 
         var now = new Date();
         var parts = endTimeStr.split(":");
@@ -188,19 +187,27 @@ if unique_code:
             var nowTime = new Date().getTime();
             var distance = countDownDate - nowTime;
 
-            // समय समाप्त होने पर
+            // समय समाप्त होने पर ऑटो-सबमिट लॉजिक
             if (distance <= 0) {{
                 clearInterval(x);
                 document.getElementById("clock").innerHTML = "00:00";
                 document.getElementById("timer-container").style.backgroundColor = "#FFEBEE";
                 document.getElementById("timer-container").style.borderColor = "#D32F2F";
-                document.getElementById("alert-msg").innerHTML = "❌ समय समाप्त! अब आप टेस्ट सबमिट नहीं कर सकते।";
+                document.getElementById("alert-msg").innerHTML = "⏳ समय समाप्त! आपका टेस्ट ऑटो-सबमिट हो रहा है...";
                 document.getElementById("alert-msg").style.display = "block";
                 document.getElementById("alert-msg").style.animation = "none";
+                
+                // स्ट्रीमलिट के मेन पेज पर सबमिट बटन को खोजकर ऑटो-क्लिक करना
+                var buttons = window.parent.document.querySelectorAll('button');
+                for (var i = 0; i < buttons.length; i++) {{
+                    if (buttons[i].innerText.includes('अपना टेस्ट जमा करें')) {{
+                        buttons[i].click();
+                        break;
+                    }}
+                }}
                 return;
             }}
 
-            // मिनट और सेकंड की गणना
             var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
             var seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
@@ -209,7 +216,6 @@ if unique_code:
 
             document.getElementById("clock").innerHTML = m + ":" + s;
 
-            // अंतिम 1 मिनट (60 सेकंड) का अलर्ट
             if (distance <= 60000) {{
                 document.getElementById("timer-container").style.backgroundColor = "#FFCDD2";
                 document.getElementById("timer-container").style.borderColor = "#D32F2F";
@@ -219,6 +225,8 @@ if unique_code:
         }}, 1000);
     </script>
     """
+    
+    components.html(timer_html, height=170)
     
     # टाइमर को स्क्रीन पर दिखाना (height=170 सुनिश्चित करता है कि बॉक्स पूरा दिखे)
     components.html(timer_html, height=170)
