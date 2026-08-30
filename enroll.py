@@ -3,8 +3,20 @@ import streamlit.components.v1 as components
 from supabase import create_client, Client
 import datetime
 
-# --- 1. पेज सेटिंग ---
+# --- 1. पेज सेटिंग और एंटी-कॉपी CSS ---
 st.set_page_config(page_title="परीक्षा पोर्टल | हिंदी पखवाड़ा 2026", page_icon="📝", layout="centered")
+
+st.markdown("""
+<style>
+/* टेक्स्ट को सेलेक्ट या कॉपी करने से रोकें */
+* {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # --- इंटरनेट जांच बटन ---
 if st.button("🌐 इंटरनेट कनेक्शन जांचें"):
@@ -85,8 +97,8 @@ COMPETITIONS = {
         "name": "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली",
         "time_limit_mins": 25, 
         "competition_date": "2026-08-30",
-        "start_time": "15:50",
-        "end_time": "16:15", # 25 मिनट का समय
+        "start_time": "16:10",
+        "end_time": "16:35",
         "is_mcq": True
     },
 }
@@ -157,11 +169,11 @@ if unique_code:
         st.error(f"सत्यापन में त्रुटि: {e}")
         st.stop()
 
-    # --- 8. परीक्षा फॉर्म (MCQ Section) ---
+    # --- 8. परीक्षा फॉर्म (MCQ Section) और एंटी-चीट सिक्योरिटी ---
     st.markdown("---")
     st.markdown("### 📝 बहुविकल्पीय प्रश्न (MCQs)")
     
-    # --- 🚀 लाइव टाइमर और ऑटो-सबमिट फीचर ---
+    # 🚀 लाइव टाइमर, ऑटो-सबमिट, फुल-स्क्रीन और माइक मॉनिटरिंग
     timer_html = f"""
     <div id="timer-container" style="background-color: #E3F2FD; border: 3px solid #2196F3; border-radius: 12px; padding: 15px; text-align: center; font-family: Arial, sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 10px;">
         <h3 style="margin: 0; color: #004B87; font-size: 20px;">⏳ समय शेष (Time Remaining)</h3>
@@ -176,6 +188,85 @@ if unique_code:
         }}
     </style>
     <script>
+        // 1. Right Click & Copy-Paste Prevention
+        window.parent.document.addEventListener('contextmenu', e => e.preventDefault());
+        window.parent.document.addEventListener('copy', e => e.preventDefault());
+        window.parent.document.addEventListener('cut', e => e.preventDefault());
+        window.parent.document.addEventListener('paste', e => e.preventDefault());
+
+        var warnings = 0;
+
+        function autoSubmitTest() {{
+            var buttons = window.parent.document.querySelectorAll('button');
+            for (var i = 0; i < buttons.length; i++) {{
+                if (buttons[i].innerText.includes('अपना टेस्ट जमा करें')) {{
+                    buttons[i].click();
+                    break;
+                }}
+            }}
+        }}
+
+        // 2. Full-Screen Enforcement & Tab Switch Detection
+        function enforceSecurity() {{
+            if (window.parent.document.hidden || (!window.parent.document.fullscreenElement && !window.parent.document.webkitIsFullScreen)) {{
+                warnings++;
+                alert("⚠️ चेतावनी: टैब बदलना या फुल-स्क्रीन से बाहर जाना वर्जित है! उल्लंघन: " + warnings + "/2");
+                
+                if (warnings >= 2) {{
+                    alert("❌ सुरक्षा नियमों के उल्लंघन के कारण आपका टेस्ट स्वतः सबमिट किया जा रहा है।");
+                    autoSubmitTest();
+                }} else {{
+                    window.parent.document.documentElement.requestFullscreen().catch((e) => console.log(e));
+                }}
+            }}
+        }}
+        
+        window.parent.document.addEventListener('visibilitychange', enforceSecurity);
+        window.parent.document.addEventListener('fullscreenchange', enforceSecurity);
+
+        // 3. Microphone Noise Detection
+        navigator.mediaDevices.getUserMedia({{ audio: true, video: false }})
+        .then(function(stream) {{
+            var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            var analyser = audioContext.createAnalyser();
+            var microphone = audioContext.createMediaStreamSource(stream);
+            var javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+
+            analyser.smoothingTimeConstant = 0.8;
+            analyser.fftSize = 1024;
+            microphone.connect(analyser);
+            analyser.connect(javascriptNode);
+            javascriptNode.connect(audioContext.destination);
+
+            var talkingTime = 0;
+            javascriptNode.onaudioprocess = function() {{
+                var array = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(array);
+                var values = 0;
+                for (var i = 0; i < array.length; i++) {{
+                    values += (array[i]);
+                }}
+                var average = values / array.length;
+
+                if (average > 40) {{
+                    talkingTime++;
+                    if (talkingTime > 150) {{
+                        alert("⚠️ सुरक्षा चेतावनी: परीक्षा के दौरान बोलना या किसी AI वॉयस टूल का उपयोग करना वर्जित है!");
+                        talkingTime = 0; 
+                        warnings++;
+                        if (warnings >= 2) {{ autoSubmitTest(); }}
+                    }}
+                }} else {{
+                    talkingTime = 0;
+                }}
+            }}
+        }})
+        .catch(function(err) {{
+            alert("⚠️ परीक्षा शुरू करने के लिए माइक्रोफोन की अनुमति (Microphone Permission) देना अनिवार्य है!");
+            autoSubmitTest();
+        }});
+
+        // 4. Timer Logic
         var endTimeStr = "{end_time}"; 
         var now = new Date();
         var parts = endTimeStr.split(":");
@@ -185,7 +276,6 @@ if unique_code:
             var nowTime = new Date().getTime();
             var distance = countDownDate - nowTime;
 
-            // समय समाप्त होने पर ऑटो-सबमिट लॉजिक
             if (distance <= 0) {{
                 clearInterval(x);
                 document.getElementById("clock").innerHTML = "00:00";
@@ -194,15 +284,7 @@ if unique_code:
                 document.getElementById("alert-msg").innerHTML = "⏳ समय समाप्त! आपका टेस्ट ऑटो-सबमिट हो रहा है...";
                 document.getElementById("alert-msg").style.display = "block";
                 document.getElementById("alert-msg").style.animation = "none";
-                
-                // स्ट्रीमलिट के मेन पेज पर सबमिट बटन को खोजकर ऑटो-क्लिक करना
-                var buttons = window.parent.document.querySelectorAll('button');
-                for (var i = 0; i < buttons.length; i++) {{
-                    if (buttons[i].innerText.includes('अपना टेस्ट जमा करें')) {{
-                        buttons[i].click();
-                        break;
-                    }}
-                }}
+                autoSubmitTest();
                 return;
             }}
 
