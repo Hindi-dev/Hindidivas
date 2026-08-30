@@ -8,7 +8,6 @@ st.set_page_config(page_title="परीक्षा पोर्टल | हि
 
 st.markdown("""
 <style>
-/* टेक्स्ट को सेलेक्ट या कॉपी करने से रोकें */
 * {
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -18,13 +17,38 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- इंटरनेट जांच बटन ---
+# --- 2. परिणाम का एकदम साफ़ और अलग पेज (Session State) ---
+if "test_submitted" not in st.session_state:
+    st.session_state.test_submitted = False
+    st.session_state.results = {}
+
+if st.session_state.test_submitted:
+    st.balloons()
+    st.markdown("<br><h2 style='text-align: center; color: #4CAF50;'>🎉 परीक्षा सफलतापूर्वक जमा हो गई!</h2>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: 1px solid #e0e0e0;'>", unsafe_allow_html=True)
+    
+    res = st.session_state.results
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.info(f"✅ **सही उत्तर:** {res['correct']}")
+    with col2:
+        st.error(f"❌ **गलत उत्तर:** {res['wrong']}")
+    with col3:
+        st.warning(f"⚪ **छोड़े गए:** {res['unanswered']}")
+        
+    st.markdown(f"<h4 style='color: #D32F2F; text-align: center;'>काटे गए अंक (Negative Marks): -{res['negative']}</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align:center; color: #004B87; background-color: #E3F2FD; padding: 20px; border-radius: 10px; margin-top: 20px;'>🏆 आपका अंतिम स्कोर: {res['final_score']} / {res['total']}</h2>", unsafe_allow_html=True)
+    
+    st.success("✅ आपका परिणाम सुरक्षित रूप से हमारे पास दर्ज कर लिया गया है। अब आप इस पेज/टैब को सुरक्षित रूप से बंद कर सकते हैं।")
+    st.stop() 
+
+
+# --- 3. डेटाबेस कनेक्शन ---
 if st.button("🌐 इंटरनेट कनेक्शन जांचें"):
     st.toast("आपका इंटरनेट सही ढंग से काम कर रहा है!", icon="✅")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- 2. डेटाबेस कनेक्शन ---
 @st.cache_resource
 def init_connection() -> Client:
     url = st.secrets["SUPABASE_URL"]
@@ -37,7 +61,7 @@ except Exception as e:
     st.error("डेटाबेस से जुड़ने में त्रुटि। कृपया इंटरनेट कनेक्शन या Secrets की जांच करें।")
     st.stop()
 
-# --- 3. 50 बहुविकल्पीय प्रश्नों की सूची (MCQs) ---
+# --- 4. 50 बहुविकल्पीय प्रश्नों की सूची (MCQs) ---
 IDIOMS_QUESTIONS = [
     {"q": "1. अपनी डफली अपना राग", "options": ["स्वतंत्र होना", "अपना दुखड़ा रोना", "संगठन का अभाव", "सबका अपने-अपने मन के अनुसार चलना"], "ans": "सबका अपने-अपने मन के अनुसार चलना"},
     {"q": "2. कोई इर घाट तो कोई बीर घाट", "options": ["बार-बार कथन बदलना", "ताल-मेल ना होना", "तितर-बितर होना", "बहुत चालाक होना"], "ans": "ताल-मेल ना होना"},
@@ -91,19 +115,18 @@ IDIOMS_QUESTIONS = [
     {"q": "50. 'Propriety Audit' का हिन्दी में सही अनुवाद क्या है?", "options": ["औचित्य लेखापरीक्षा", "संपत्ति लेखापरीक्षा", "यथार्थ लेखापरीक्षा", "उपयुक्तता लेखापरीक्षा"], "ans": "औचित्य लेखापरीक्षा"}
 ]
 
-# --- 4. प्रतियोगिताओं की समय सारणी ---
+# --- 5. प्रतियोगिताओं की समय सारणी ---
 COMPETITIONS = {
     "idioms": {
         "name": "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली",
         "time_limit_mins": 25, 
         "competition_date": "2026-08-30",
-        "start_time": "16:10",
-        "end_time": "21:35",
+        "start_time": "15:50",
+        "end_time": "21:15",
         "is_mcq": True
     },
 }
 
-# --- 5. यूआरएल (URL) से प्रतियोगिता चेक करना ---
 query_params = st.query_params
 comp_slug = query_params.get("comp")
 
@@ -116,7 +139,7 @@ competition_info = COMPETITIONS[comp_slug]
 st.markdown(f"<h2 style='text-align: center; color: #004B87;'>{competition_info['name']}</h2>", unsafe_allow_html=True)
 st.markdown("---")
 
-# --- 6. दिनांक और समय विंडो जांच (Time Validation) ---
+# --- 6. दिनांक और समय विंडो जांच ---
 ist_offset = datetime.timedelta(hours=5, minutes=30)
 now = datetime.datetime.utcnow() + ist_offset
 
@@ -142,7 +165,7 @@ else:
     else:
         st.success(f"✅ प्रतियोगिता सक्रिय है। यह विंडो **{end_time} बजे** बंद हो जाएगी। कृपया 25 मिनट के भीतर टेस्ट सबमिट करें।")
 
-# --- 7. लॉगिन और सुरक्षा जांच (Unique Code & Cheat Prevention) ---
+# --- 7. लॉगिन और सुरक्षा जांच ---
 st.markdown("### 🔑 अपना 4-अंकीय कोड दर्ज करें")
 unique_code = st.text_input("पंजीकरण के समय प्राप्त कोड (Unique Code):", max_chars=4, type="password")
 
@@ -169,17 +192,17 @@ if unique_code:
         st.error(f"सत्यापन में त्रुटि: {e}")
         st.stop()
 
-    # --- 8. परीक्षा फॉर्म (MCQ Section) और एंटी-चीट सिक्योरिटी ---
+    # --- 8. परीक्षा फॉर्म और फ्लोटिंग टाइमर ---
     st.markdown("---")
     st.markdown("### 📝 बहुविकल्पीय प्रश्न (MCQs)")
     
-    # 🚀 लाइव टाइमर, ऑटो-सबमिट, फुल-स्क्रीन और माइक मॉनिटरिंग
+    # 🚀 चिपका हुआ (Sticky/Floating) लाइव टाइमर
     timer_html = f"""
-    <div id="timer-container" style="background-color: #E3F2FD; border: 3px solid #2196F3; border-radius: 12px; padding: 15px; text-align: center; font-family: Arial, sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 10px;">
-        <h3 style="margin: 0; color: #004B87; font-size: 20px;">⏳ समय शेष (Time Remaining)</h3>
-        <div id="clock" style="font-size: 38px; font-weight: bold; color: #333; margin: 10px 0;">--:--</div>
-        <div id="alert-msg" style="color: #D32F2F; font-weight: bold; font-size: 18px; display: none; margin: 0; animation: blinker 1s linear infinite;">
-            ⚠️ अंतिम 1 मिनट शेष! कृपया तुरंत अपना टेस्ट सबमिट करें!
+    <div id="timer-container" style="background-color: rgba(227, 242, 253, 0.95); border: 2px solid #2196F3; border-radius: 8px; padding: 10px; text-align: center; font-family: Arial, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.15); backdrop-filter: blur(4px);">
+        <h3 style="margin: 0; color: #004B87; font-size: 15px;">⏳ समय शेष</h3>
+        <div id="clock" style="font-size: 28px; font-weight: bold; color: #333; margin: 5px 0;">--:--</div>
+        <div id="alert-msg" style="color: #D32F2F; font-weight: bold; font-size: 13px; display: none; margin: 0; animation: blinker 1s linear infinite;">
+            ⚠️ जल्दी करें!
         </div>
     </div>
     <style>
@@ -188,11 +211,26 @@ if unique_code:
         }}
     </style>
     <script>
-        // 1. Right Click & Copy-Paste Prevention
+        // राइट-क्लिक और कॉपी-पेस्ट बंद करें
         window.parent.document.addEventListener('contextmenu', e => e.preventDefault());
         window.parent.document.addEventListener('copy', e => e.preventDefault());
         window.parent.document.addEventListener('cut', e => e.preventDefault());
         window.parent.document.addEventListener('paste', e => e.preventDefault());
+
+        // 🌟 टाइमर को फ्लोटिंग (Sticky) बनाने का कोड
+        var iframes = window.parent.document.querySelectorAll('iframe');
+        for (var i = 0; i < iframes.length; i++) {{
+            if (iframes[i].contentWindow === window) {{
+                var wrapper = iframes[i].parentElement;
+                wrapper.style.position = 'fixed';
+                wrapper.style.bottom = '30px';       // नीचे से 30px
+                wrapper.style.right = '20px';        // दायीं ओर से 20px
+                wrapper.style.width = '180px';       // चौड़ाई
+                wrapper.style.zIndex = '999999';     // सबसे ऊपर रखने के लिए
+                wrapper.style.pointerEvents = 'none';// इसके आर-पार क्लिक हो सके
+                break;
+            }}
+        }}
 
         var warnings = 0;
 
@@ -206,7 +244,7 @@ if unique_code:
             }}
         }}
 
-        // 2. Full-Screen Enforcement & Tab Switch Detection
+        // फुल-स्क्रीन मॉनिटरिंग
         function enforceSecurity() {{
             if (window.parent.document.hidden || (!window.parent.document.fullscreenElement && !window.parent.document.webkitIsFullScreen)) {{
                 warnings++;
@@ -224,7 +262,7 @@ if unique_code:
         window.parent.document.addEventListener('visibilitychange', enforceSecurity);
         window.parent.document.addEventListener('fullscreenchange', enforceSecurity);
 
-        // 3. Microphone Noise Detection
+        // माइक मॉनिटरिंग (Gemini Live/Voice Assistant रोक)
         navigator.mediaDevices.getUserMedia({{ audio: true, video: false }})
         .then(function(stream) {{
             var audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -266,7 +304,7 @@ if unique_code:
             autoSubmitTest();
         }});
 
-        // 4. Timer Logic
+        // टाइमर लॉजिक
         var endTimeStr = "{end_time}"; 
         var now = new Date();
         var parts = endTimeStr.split(":");
@@ -279,9 +317,7 @@ if unique_code:
             if (distance <= 0) {{
                 clearInterval(x);
                 document.getElementById("clock").innerHTML = "00:00";
-                document.getElementById("timer-container").style.backgroundColor = "#FFEBEE";
-                document.getElementById("timer-container").style.borderColor = "#D32F2F";
-                document.getElementById("alert-msg").innerHTML = "⏳ समय समाप्त! आपका टेस्ट ऑटो-सबमिट हो रहा है...";
+                document.getElementById("alert-msg").innerHTML = "⏳ आपका टेस्ट ऑटो-सबमिट हो रहा है...";
                 document.getElementById("alert-msg").style.display = "block";
                 document.getElementById("alert-msg").style.animation = "none";
                 autoSubmitTest();
@@ -306,15 +342,14 @@ if unique_code:
     </script>
     """
     
-    components.html(timer_html, height=170)
+    components.html(timer_html, height=120)
     
     with st.form("mcq_quiz_form", border=False):
         user_answers = {}
         
-        # Google Form जैसा लुक देने के लिए कस्टम CSS
+        # Google Form जैसा लुक
         st.markdown("""
         <style>
-        /* रेडियो बटन के बीच थोड़ा गैप देने के लिए */
         div.row-widget.stRadio > div {
             gap: 12px;
             padding-left: 10px;
@@ -323,11 +358,8 @@ if unique_code:
         """, unsafe_allow_html=True)
         
         for i, q_data in enumerate(IDIOMS_QUESTIONS):
-            # हर प्रश्न के लिए एक अलग 'Card' (बॉर्डर वाला कंटेनर) बनाएं
             with st.container(border=True):
-                # Google Form जैसी फॉन्ट स्टाइल और रंग
                 st.markdown(f"<div style='font-family: Arial, sans-serif; font-size: 16px; font-weight: 600; color: #202124; margin-bottom: 15px;'>{q_data['q']}</div>", unsafe_allow_html=True)
-                
                 user_answers[i] = st.radio(
                     f"Select {i}", 
                     q_data['options'], 
@@ -335,13 +367,12 @@ if unique_code:
                     index=None, 
                     label_visibility="collapsed"
                 )
-        
+            
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # सबमिट बटन
         submitted = st.form_submit_button("✅ अपना टेस्ट जमा करें (Submit Test)", use_container_width=True)
         
-        # --- 9. मार्किंग और डेटाबेस में सुरक्षित करना ---
+        # --- 9. मार्किंग, डेटाबेस अपडेट और Session State Rerun ---
         if submitted:
             correct_answers = 0
             wrong_answers = 0
@@ -369,23 +400,18 @@ if unique_code:
                         "wrong_answers": wrong_answers,
                         "unanswered": unanswered
                     }).execute()
-                    
-                    st.success("✅ आपका परिणाम सुरक्षित रूप से एडमिन के पास दर्ज कर लिया गया है!")
                 except Exception as e:
                     st.error(f"स्कोर सेव करने में तकनीकी त्रुटि: {e}")
                     st.stop()
             
-            st.markdown("### 📊 आपका परीक्षा परिणाम:")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.info(f"✅ **सही उत्तर:** {correct_answers}")
-            with col2:
-                st.error(f"❌ **गलत उत्तर:** {wrong_answers}")
-            with col3:
-                st.warning(f"⚪ **छोड़े गए:** {unanswered}")
-                
-            st.markdown(f"**काटे गए अंक (Negative Marks):** -{negative_marks}")
-            st.markdown(f"### 🏆 आपका अंतिम स्कोर: **{final_score} / {len(IDIOMS_QUESTIONS)}**")
-            
-            st.balloons()
-            st.stop()
+            # परिणामों को सेशन में सेव करके पेज रीफ़्रेश करें (ताकि केवल रिजल्ट दिखे)
+            st.session_state.results = {
+                "correct": correct_answers,
+                "wrong": wrong_answers,
+                "unanswered": unanswered,
+                "negative": negative_marks,
+                "final_score": final_score,
+                "total": len(IDIOMS_QUESTIONS)
+            }
+            st.session_state.test_submitted = True
+            st.rerun()
