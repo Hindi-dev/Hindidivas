@@ -188,31 +188,74 @@ if st.button("पंजीकरण करें (Register Now)"):
             except Exception as e:
                 st.error(f"पंजीकरण में त्रुटि: {e}")
                 # --- 6. एडमिन पैनल (Sidebar) ---
+# --- 6. एडमिन पैनल (Sidebar) ---
 with st.sidebar:
     st.markdown("### ⚙️ व्यवस्थापक (Admin)")
     admin_pass = st.text_input("पासवर्ड दर्ज करें", type="password")
     
-    # यहाँ अपना पुराना पासवर्ड लिखें (जैसे: "Sabir#@23145" की जगह अपना पासवर्ड)
-    if admin_pass == "Sabir#@23145":
+    # यहाँ अपना पुराना पासवर्ड लिखें
+    if admin_pass == "आपका-पुराना-पासवर्ड":
         st.success("लॉगिन सफल!")
         
-        if st.button("पंजीकरण डेटा देखें"):
-            import pandas as pd  # सुनिश्चित करें कि pandas इम्पोर्टेड है
+        # --- पहला बटन: सिर्फ रजिस्ट्रेशन देखने के लिए ---
+        if st.button("👥 पंजीकरण डेटा देखें"):
+            import pandas as pd
             try:
                 data = supabase.table("registrations").select("*").execute()
                 df = pd.DataFrame(data.data)
                 if not df.empty:
                     st.dataframe(df)
-                    
-                    # CSV डाउनलोड करने का विकल्प
                     csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 डेटा डाउनलोड करें (CSV)",
-                        data=csv,
-                        file_name='registrations.csv',
-                        mime='text/csv',
-                    )
+                    st.download_button("📥 डेटा डाउनलोड करें (CSV)", data=csv, file_name='registrations.csv', mime='text/csv')
                 else:
                     st.info("अभी तक कोई पंजीकरण नहीं हुआ है।")
             except Exception as e:
                 st.error(f"डेटा लोड करने में त्रुटि: {e}")
+                
+        st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
+        
+        # --- दूसरा नया बटन: परीक्षा परिणाम (Leaderboard) देखने के लिए ---
+        if st.button("🏆 परीक्षा परिणाम (Leaderboard)"):
+            import pandas as pd
+            try:
+                with st.spinner("परिणाम तैयार किए जा रहे हैं..."):
+                    # 1. परीक्षा के अंक और छात्रों की जानकारी मंगाएं
+                    scores_res = supabase.table("competition_enrollments").select("*").execute()
+                    users_res = supabase.table("registrations").select("unique_code, name, designation, department, place").execute()
+
+                    if scores_res.data:
+                        df_scores = pd.DataFrame(scores_res.data)
+                        df_users = pd.DataFrame(users_res.data)
+
+                        # 2. दोनों टेबल्स को 4-अंकीय 'unique_code' के आधार पर मिला लें
+                        if not df_users.empty:
+                            df_final = pd.merge(df_scores, df_users, on="unique_code", how="left")
+                        else:
+                            df_final = df_scores
+
+                        # 3. अंकों (score) के आधार पर घटते क्रम (Descending) में सजाएं
+                        df_final = df_final.sort_values(by="score", ascending=False).reset_index(drop=True)
+
+                        # 4. रैंक (Rank - 1, 2, 3...) निर्धारित करें
+                        df_final.index = df_final.index + 1
+                        
+                        # 5. शीट को साफ़-सुथरा बनाने के लिए केवल ज़रूरी कॉलम चुनें
+                        df_display = df_final[['unique_code', 'name', 'designation', 'place', 'score', 'correct_answers', 'wrong_answers', 'unanswered']]
+                        df_display.columns = ['यूनिक कोड', 'प्रतिभागी का नाम', 'पदनाम', 'स्थान', 'कुल अंक (Score)', 'सही उत्तर', 'गलत उत्तर', 'छोड़े गए']
+                        df_display.index.name = "रैंक (Rank)"
+
+                        st.markdown("### 🏆 टॉप स्कोरर्स (Leaderboard)")
+                        st.dataframe(df_display)
+
+                        # 6. साफ़ शीट को डाउनलोड करने का विकल्प
+                        csv_leaderboard = df_display.to_csv().encode('utf-8')
+                        st.download_button(
+                            label="📥 परिणाम डाउनलोड करें (Excel/CSV)",
+                            data=csv_leaderboard,
+                            file_name='Final_Results_Leaderboard.csv',
+                            mime='text/csv',
+                        )
+                    else:
+                        st.warning("अभी तक किसी भी प्रतिभागी ने परीक्षा जमा नहीं की है।")
+            except Exception as e:
+                st.error(f"परिणाम लोड करने में त्रुटि: {e}")
