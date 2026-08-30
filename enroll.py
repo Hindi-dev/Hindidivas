@@ -224,11 +224,29 @@ if unique_code:
     components.html(timer_html, height=170)
 
     # --- इसके नीचे आपका पुराना फॉर्म वाला कोड रहेगा ---
+    # --- इसके ऊपर आपका JavaScript टाइमर वाला कोड रहेगा ---
+    
     with st.form("mcq_quiz_form"):
         user_answers = {}
-# (बाकी का सारा कोड वैसा ही रहेगा)
+        
+        for i, q_data in enumerate(IDIOMS_QUESTIONS):
+            st.markdown(f"**{q_data['q']}**")
+            user_answers[i] = st.radio(
+                f"Select {i}", 
+                q_data['options'], 
+                key=f"q_{i}", 
+                index=None, 
+                label_visibility="collapsed"
+            )
+            st.markdown("<hr style='margin: 10px 0; border: 0.5px solid #e0e0e0;'>", unsafe_allow_html=True)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # ⚠️ यह लाइन बहुत ज़रूरी है, यहीं से 'submitted' बनता है
+        submitted = st.form_submit_button("✅ अपना टेस्ट जमा करें (Submit Test)", use_container_width=True)
         
         # --- 9. मार्किंग और डेटाबेस में सुरक्षित करना ---
+        # ⚠️ ध्यान दें: यह 'if submitted:' फॉर्म के अंदर (Indented) होना चाहिए
         if submitted:
             correct_answers = 0
             wrong_answers = 0
