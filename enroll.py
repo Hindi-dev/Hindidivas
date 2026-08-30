@@ -98,7 +98,7 @@ COMPETITIONS = {
         "time_limit_mins": 25, 
         "competition_date": "2026-08-30",
         "start_time": "16:10",
-        "end_time": "16:35",
+        "end_time": "21:35",
         "is_mcq": True
     },
 }
