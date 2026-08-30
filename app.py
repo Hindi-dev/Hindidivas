@@ -215,12 +215,13 @@ with st.sidebar:
         st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
         
         # --- दूसरा नया बटन: परीक्षा परिणाम (Leaderboard) देखने के लिए ---
-        if st.button("🏆 परीक्षा परिणाम (Leaderboard)"):
+        # --- ⌨️ टाइपिंग टेस्ट परिणाम (Leaderboard) बटन ---
+        if st.button("⌨️ टाइपिंग टेस्ट परिणाम (Leaderboard)"):
             import pandas as pd
             try:
-                with st.spinner("परिणाम तैयार किए जा रहे हैं..."):
-                    # 1. परीक्षा के अंक और छात्रों की जानकारी मंगाएं
-                    scores_res = supabase.table("competition_enrollments").select("*").execute()
+                with st.spinner("टाइपिंग परिणाम तैयार किए जा रहे हैं..."):
+                    # 1. डेटाबेस से केवल 'typing' प्रतियोगिता का डेटा मंगाएं
+                    scores_res = supabase.table("competition_enrollments").select("*").eq("competition_slug", "typing").execute()
                     users_res = supabase.table("registrations").select("unique_code, name, designation, department, place").execute()
 
                     if scores_res.data:
@@ -233,29 +234,29 @@ with st.sidebar:
                         else:
                             df_final = df_scores
 
-                        # 3. अंकों (score) के आधार पर घटते क्रम (Descending) में सजाएं
-                        df_final = df_final.sort_values(by="score", ascending=False).reset_index(drop=True)
+                        # 3. WPM (स्पीड) के आधार पर घटते क्रम में सजाएं (अगर WPM समान हो तो Accuracy देखें)
+                        df_final = df_final.sort_values(by=["typing_wpm", "typing_accuracy"], ascending=[False, False]).reset_index(drop=True)
 
                         # 4. रैंक (Rank - 1, 2, 3...) निर्धारित करें
                         df_final.index = df_final.index + 1
                         
-                        # 5. शीट को साफ़-सुथरा बनाने के लिए केवल ज़रूरी कॉलम चुनें
-                        df_display = df_final[['unique_code', 'name', 'designation', 'place', 'score', 'correct_answers', 'wrong_answers', 'unanswered']]
-                        df_display.columns = ['यूनिक कोड', 'प्रतिभागी का नाम', 'पदनाम', 'स्थान', 'कुल अंक (Score)', 'सही उत्तर', 'गलत उत्तर', 'छोड़े गए']
+                        # 5. परीक्षक के लिए केवल ज़रूरी और साफ़ कॉलम चुनें
+                        df_display = df_final[['unique_code', 'name', 'designation', 'place', 'typing_wpm', 'typing_accuracy']]
+                        df_display.columns = ['यूनिक कोड', 'प्रतिभागी का नाम', 'पदनाम', 'स्थान', 'स्पीड (Net WPM)', 'शुद्धता (Accuracy %)']
                         df_display.index.name = "रैंक (Rank)"
 
-                        st.markdown("### 🏆 टॉप स्कोरर्स (Leaderboard)")
+                        st.markdown("### ⌨️ टाइपिंग टॉप स्कोरर्स (Leaderboard)")
                         st.dataframe(df_display)
 
                         # 6. साफ़ शीट को डाउनलोड करने का विकल्प
                         csv_leaderboard = df_display.to_csv().encode('utf-8')
                         st.download_button(
-                            label="📥 परिणाम डाउनलोड करें (Excel/CSV)",
+                            label="📥 टाइपिंग परिणाम डाउनलोड करें (Excel/CSV)",
                             data=csv_leaderboard,
-                            file_name='Final_Results_Leaderboard.csv',
+                            file_name='Typing_Test_Leaderboard.csv',
                             mime='text/csv',
                         )
                     else:
-                        st.warning("अभी तक किसी भी प्रतिभागी ने परीक्षा जमा नहीं की है।")
+                        st.warning("अभी तक किसी भी प्रतिभागी ने टाइपिंग टेस्ट जमा नहीं किया है।")
             except Exception as e:
                 st.error(f"परिणाम लोड करने में त्रुटि: {e}")
