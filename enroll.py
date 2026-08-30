@@ -85,11 +85,10 @@ COMPETITIONS = {
         "name": "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली",
         "time_limit_mins": 25, 
         "competition_date": "2026-08-30",
-        "start_time": "15.50",
-        "end_time": "16.15:", # 35 मिनट की विंडो (25 मिनट के टेस्ट के लिए)
+        "start_time": "15:50",
+        "end_time": "16:15", # 25 मिनट का समय
         "is_mcq": True
     },
-    # आप भविष्य में यहाँ अन्य प्रतियोगिताएं भी जोड़ सकते हैं
 }
 
 # --- 5. यूआरएल (URL) से प्रतियोगिता चेक करना ---
@@ -106,7 +105,6 @@ st.markdown(f"<h2 style='text-align: center; color: #004B87;'>{competition_info[
 st.markdown("---")
 
 # --- 6. दिनांक और समय विंडो जांच (Time Validation) ---
-# Streamlit सर्वर (UTC) के समय को भारतीय मानक समय (IST) में बदलना:
 ist_offset = datetime.timedelta(hours=5, minutes=30)
 now = datetime.datetime.utcnow() + ist_offset
 
@@ -118,7 +116,7 @@ start_time = competition_info["start_time"]
 end_time = competition_info["end_time"]
 
 if today_str != comp_date:
-    st.warning("🚫 यह प्रतियोगिता वर्तमान में बंद है। इसकी निर्धारित तिथि **{30.08.2026}** है।")
+    st.warning(f"🚫 यह प्रतियोगिता वर्तमान में बंद है। इसकी निर्धारित तिथि **{comp_date}** है।")
     st.stop()
 else:
     if current_time_str < start_time:
@@ -131,6 +129,7 @@ else:
         st.stop()
     else:
         st.success(f"✅ प्रतियोगिता सक्रिय है। यह विंडो **{end_time} बजे** बंद हो जाएगी। कृपया 25 मिनट के भीतर टेस्ट सबमिट करें।")
+
 # --- 7. लॉगिन और सुरक्षा जांच (Unique Code & Cheat Prevention) ---
 st.markdown("### 🔑 अपना 4-अंकीय कोड दर्ज करें")
 unique_code = st.text_input("पंजीकरण के समय प्राप्त कोड (Unique Code):", max_chars=4, type="password")
@@ -145,7 +144,6 @@ if unique_code:
         else:
             user_data = user_check.data[0]
             
-            # चेक करें कि क्या प्रतिभागी ने पहले ही टेस्ट दे दिया है
             attempt_check = supabase.table("competition_enrollments").select("*").eq("unique_code", unique_code).eq("competition_slug", comp_slug).execute()
             
             if len(attempt_check.data) > 0:
@@ -163,7 +161,7 @@ if unique_code:
     st.markdown("---")
     st.markdown("### 📝 बहुविकल्पीय प्रश्न (MCQs)")
     
-    # --- 🚀 नया लाइव टाइमर (ऑटो-सबमिट फीचर के साथ) ---
+    # --- 🚀 लाइव टाइमर और ऑटो-सबमिट फीचर ---
     timer_html = f"""
     <div id="timer-container" style="background-color: #E3F2FD; border: 3px solid #2196F3; border-radius: 12px; padding: 15px; text-align: center; font-family: Arial, sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 10px;">
         <h3 style="margin: 0; color: #004B87; font-size: 20px;">⏳ समय शेष (Time Remaining)</h3>
@@ -228,12 +226,6 @@ if unique_code:
     
     components.html(timer_html, height=170)
     
-    # टाइमर को स्क्रीन पर दिखाना (height=170 सुनिश्चित करता है कि बॉक्स पूरा दिखे)
-    components.html(timer_html, height=170)
-
-    # --- इसके नीचे आपका पुराना फॉर्म वाला कोड रहेगा ---
-    # --- इसके ऊपर आपका JavaScript टाइमर वाला कोड रहेगा ---
-    
     with st.form("mcq_quiz_form"):
         user_answers = {}
         
@@ -250,11 +242,9 @@ if unique_code:
             
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # ⚠️ यह लाइन बहुत ज़रूरी है, यहीं से 'submitted' बनता है
         submitted = st.form_submit_button("✅ अपना टेस्ट जमा करें (Submit Test)", use_container_width=True)
         
         # --- 9. मार्किंग और डेटाबेस में सुरक्षित करना ---
-        # ⚠️ ध्यान दें: यह 'if submitted:' फॉर्म के अंदर (Indented) होना चाहिए
         if submitted:
             correct_answers = 0
             wrong_answers = 0
@@ -272,7 +262,6 @@ if unique_code:
             negative_marks = wrong_answers * 0.25
             final_score = correct_answers - negative_marks
             
-            # डेटाबेस में सेव करें
             with st.spinner("आपका परिणाम सुरक्षित किया जा रहा है..."):
                 try:
                     supabase.table("competition_enrollments").insert({
@@ -289,7 +278,6 @@ if unique_code:
                     st.error(f"स्कोर सेव करने में तकनीकी त्रुटि: {e}")
                     st.stop()
             
-            # स्कोरकार्ड दिखाना
             st.markdown("### 📊 आपका परीक्षा परिणाम:")
             col1, col2, col3 = st.columns(3)
             with col1:
