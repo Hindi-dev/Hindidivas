@@ -105,7 +105,10 @@ st.markdown(f"<h2 style='text-align: center; color: #004B87;'>{competition_info[
 st.markdown("---")
 
 # --- 6. दिनांक और समय विंडो जांच (Time Validation) ---
-now = datetime.datetime.now()
+# Streamlit सर्वर (UTC) के समय को भारतीय मानक समय (IST) में बदलना:
+ist_offset = datetime.timedelta(hours=5, minutes=30)
+now = datetime.datetime.utcnow() + ist_offset
+
 today_str = now.strftime("%Y-%m-%d")
 current_time_str = now.strftime("%H:%M")
 
@@ -127,7 +130,6 @@ else:
         st.stop()
     else:
         st.success(f"✅ प्रतियोगिता सक्रिय है। यह विंडो **{end_time} बजे** बंद हो जाएगी। कृपया 25 मिनट के भीतर टेस्ट सबमिट करें।")
-
 # --- 7. लॉगिन और सुरक्षा जांच (Unique Code & Cheat Prevention) ---
 st.markdown("### 🔑 अपना 4-अंकीय कोड दर्ज करें")
 unique_code = st.text_input("पंजीकरण के समय प्राप्त कोड (Unique Code):", max_chars=4, type="password")
