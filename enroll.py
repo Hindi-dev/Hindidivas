@@ -344,16 +344,52 @@ if unique_code:
     
     components.html(timer_html, height=120)
     
+    # --- 2. परिणाम का एकदम साफ़ और अलग पेज (Session State) ---
+if "test_submitted" not in st.session_state:
+    st.session_state.test_submitted = False
+    st.session_state.results = {}
+
+if st.session_state.test_submitted:
+    st.balloons()
+    st.markdown("<br><h2 style='text-align: center; color: #4CAF50;'>🎉 परीक्षा सफलतापूर्वक जमा हो गई!</h2>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: 1px solid #e0e0e0;'>", unsafe_allow_html=True)
+    
+    res = st.session_state.results
+    
+    # MCQ का रिज़ल्ट
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.info(f"✅ **सही उत्तर:** {res['correct']}")
+    with col2:
+        st.error(f"❌ **गलत उत्तर:** {res['wrong']}")
+    with col3:
+        st.warning(f"⚪ **छोड़े गए:** {res['unanswered']}")
+        
+    st.markdown(f"<h5 style='color: #D32F2F; text-align: center;'>काटे गए अंक (Negative Marks): -{res['negative']}</h5>", unsafe_allow_html=True)
+    
+    # टाइपिंग का रिज़ल्ट
+    st.markdown("<br><h4 style='text-align: center; color: #333;'>⌨️ टाइपिंग टेस्ट का स्कोर</h4>", unsafe_allow_html=True)
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        st.success(f"⚡ **स्पीड:** {res['typing_wpm']} WPM")
+    with col_t2:
+        st.success(f"🎯 **शुद्धता (Accuracy):** {res['typing_accuracy']}%")
+
+    st.markdown(f"<h2 style='text-align:center; color: #004B87; background-color: #E3F2FD; padding: 20px; border-radius: 10px; margin-top: 20px;'>🏆 MCQ अंतिम स्कोर: {res['final_score']} / {res['total']}</h2>", unsafe_allow_html=True)
+    
+    st.success("✅ आपका परिणाम सुरक्षित रूप से हमारे पास दर्ज कर लिया गया है। अब आप इस पेज को बंद कर सकते हैं।")
+    st.stop() 
+
+
+# ... (यहाँ बीच का डेटाबेस कनेक्शन और टाइमर वाला कोड पहले जैसा ही रहेगा) ...
+
+
     with st.form("mcq_quiz_form", border=False):
         user_answers = {}
         
-        # Google Form जैसा लुक
         st.markdown("""
         <style>
-        div.row-widget.stRadio > div {
-            gap: 12px;
-            padding-left: 10px;
-        }
+        div.row-widget.stRadio > div { gap: 12px; padding-left: 10px; }
         </style>
         """, unsafe_allow_html=True)
         
@@ -368,11 +404,22 @@ if unique_code:
                     label_visibility="collapsed"
                 )
             
+        st.markdown("<hr style='border: 1px solid #e0e0e0;'>", unsafe_allow_html=True)
+        
+        # --- 🚀 नया: टाइपिंग टेस्ट का स्कोर बॉक्स ---
+        st.markdown("### ⌨️ टाइपिंग टेस्ट का स्कोर (यदि लागू हो)")
+        st.info("यदि आपने टाइपिंग टेस्ट दिया है, तो परीक्षक के मूल्यांकन हेतु अपना स्कोर यहाँ दर्ज करें। (अन्यथा इसे 0 रहने दें)")
+        col_type1, col_type2 = st.columns(2)
+        with col_type1:
+            typing_wpm = st.number_input("स्पीड (Words Per Minute)", min_value=0, max_value=200, value=0, step=1)
+        with col_type2:
+            typing_accuracy = st.number_input("शुद्धता (Accuracy %)", min_value=0.0, max_value=100.0, value=0.0, step=0.1)
+            
         st.markdown("<br>", unsafe_allow_html=True)
         
+        # सबमिट बटन
         submitted = st.form_submit_button("✅ अपना टेस्ट जमा करें (Submit Test)", use_container_width=True)
         
-        # --- 9. मार्किंग, डेटाबेस अपडेट और Session State Rerun ---
         if submitted:
             correct_answers = 0
             wrong_answers = 0
@@ -392,26 +439,30 @@ if unique_code:
             
             with st.spinner("आपका परिणाम सुरक्षित किया जा रहा है..."):
                 try:
+                    # डेटाबेस में MCQ और टाइपिंग दोनों का स्कोर सेव करें
                     supabase.table("competition_enrollments").insert({
                         "unique_code": unique_code,
                         "competition_slug": comp_slug,
                         "score": final_score,
                         "correct_answers": correct_answers,
                         "wrong_answers": wrong_answers,
-                        "unanswered": unanswered
+                        "unanswered": unanswered,
+                        "typing_wpm": typing_wpm,
+                        "typing_accuracy": typing_accuracy
                     }).execute()
                 except Exception as e:
                     st.error(f"स्कोर सेव करने में तकनीकी त्रुटि: {e}")
                     st.stop()
             
-            # परिणामों को सेशन में सेव करके पेज रीफ़्रेश करें (ताकि केवल रिजल्ट दिखे)
             st.session_state.results = {
                 "correct": correct_answers,
                 "wrong": wrong_answers,
                 "unanswered": unanswered,
                 "negative": negative_marks,
                 "final_score": final_score,
-                "total": len(IDIOMS_QUESTIONS)
+                "total": len(IDIOMS_QUESTIONS),
+                "typing_wpm": typing_wpm,
+                "typing_accuracy": typing_accuracy
             }
             st.session_state.test_submitted = True
             st.rerun()
