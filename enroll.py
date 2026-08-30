@@ -85,8 +85,8 @@ COMPETITIONS = {
         "name": "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली",
         "time_limit_mins": 25, 
         "competition_date": "2026-08-30",
-        "start_time": "14:00",
-        "end_time": "14:35", # 35 मिनट की विंडो (25 मिनट के टेस्ट के लिए)
+        "start_time": "15.05",
+        "end_time": "15:35", # 35 मिनट की विंडो (25 मिनट के टेस्ट के लिए)
         "is_mcq": True
     },
     # आप भविष्य में यहाँ अन्य प्रतियोगिताएं भी जोड़ सकते हैं
@@ -123,7 +123,7 @@ if today_str != comp_date:
 else:
     if current_time_str < start_time:
         st.warning(f"⏳ **प्रतियोगिता अभी शुरू नहीं हुई है!**")
-        st.info(f"यह टेस्ट आज **{15.00} बजे** से **{15.35} बजे** के बीच ही सक्रिय रहेगा।")
+        st.info(f"यह टेस्ट आज **{start_time} बजे** से **{end_time} बजे** के बीच ही सक्रिय रहेगा।")
         st.stop()
     elif current_time_str > end_time:
         st.error(f"❌ **समय समाप्त!**")
