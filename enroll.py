@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from supabase import create_client, Client
 import datetime
 
@@ -162,22 +163,70 @@ if unique_code:
     st.markdown("---")
     st.markdown("### 📝 बहुविकल्पीय प्रश्न (MCQs)")
     
+    # --- 🚀 नया लाइव टाइमर (JavaScript के साथ) ---
+    timer_html = f"""
+    <div id="timer-container" style="background-color: #E3F2FD; border: 3px solid #2196F3; border-radius: 12px; padding: 15px; text-align: center; font-family: Arial, sans-serif; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 10px;">
+        <h3 style="margin: 0; color: #004B87; font-size: 20px;">⏳ समय शेष (Time Remaining)</h3>
+        <div id="clock" style="font-size: 38px; font-weight: bold; color: #333; margin: 10px 0;">--:--</div>
+        <div id="alert-msg" style="color: #D32F2F; font-weight: bold; font-size: 18px; display: none; margin: 0; animation: blinker 1s linear infinite;">
+            ⚠️ अंतिम 1 मिनट शेष! कृपया तुरंत अपना टेस्ट सबमिट करें!
+        </div>
+    </div>
+    <style>
+        @keyframes blinker {{
+            50% {{ opacity: 0; }}
+        }}
+    </style>
+    <script>
+        // Python से प्राप्त प्रतियोगिता का अंतिम समय (जैसे "14:35")
+        var endTimeStr = "{end_time}"; 
+        var now = new Date();
+        var parts = endTimeStr.split(":");
+        var countDownDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(parts[0]), parseInt(parts[1]), 0).getTime();
+
+        var x = setInterval(function() {{
+            var nowTime = new Date().getTime();
+            var distance = countDownDate - nowTime;
+
+            // समय समाप्त होने पर
+            if (distance <= 0) {{
+                clearInterval(x);
+                document.getElementById("clock").innerHTML = "00:00";
+                document.getElementById("timer-container").style.backgroundColor = "#FFEBEE";
+                document.getElementById("timer-container").style.borderColor = "#D32F2F";
+                document.getElementById("alert-msg").innerHTML = "❌ समय समाप्त! अब आप टेस्ट सबमिट नहीं कर सकते।";
+                document.getElementById("alert-msg").style.display = "block";
+                document.getElementById("alert-msg").style.animation = "none";
+                return;
+            }}
+
+            // मिनट और सेकंड की गणना
+            var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            var m = minutes < 10 ? "0" + minutes : minutes;
+            var s = seconds < 10 ? "0" + seconds : seconds;
+
+            document.getElementById("clock").innerHTML = m + ":" + s;
+
+            // अंतिम 1 मिनट (60 सेकंड) का अलर्ट
+            if (distance <= 60000) {{
+                document.getElementById("timer-container").style.backgroundColor = "#FFCDD2";
+                document.getElementById("timer-container").style.borderColor = "#D32F2F";
+                document.getElementById("clock").style.color = "#D32F2F";
+                document.getElementById("alert-msg").style.display = "block";
+            }}
+        }}, 1000);
+    </script>
+    """
+    
+    # टाइमर को स्क्रीन पर दिखाना (height=170 सुनिश्चित करता है कि बॉक्स पूरा दिखे)
+    components.html(timer_html, height=170)
+
+    # --- इसके नीचे आपका पुराना फॉर्म वाला कोड रहेगा ---
     with st.form("mcq_quiz_form"):
         user_answers = {}
-        
-        for i, q_data in enumerate(IDIOMS_QUESTIONS):
-            st.markdown(f"**{q_data['q']}**")
-            user_answers[i] = st.radio(
-                f"Select {i}", 
-                q_data['options'], 
-                key=f"q_{i}", 
-                index=None, 
-                label_visibility="collapsed"
-            )
-            st.markdown("<hr style='margin: 10px 0; border: 0.5px solid #e0e0e0;'>", unsafe_allow_html=True)
-            
-        st.markdown("<br>", unsafe_allow_html=True)
-        submitted = st.form_submit_button("✅ अपना टेस्ट जमा करें (Submit Test)", use_container_width=True)
+# (बाकी का सारा कोड वैसा ही रहेगा)
         
         # --- 9. मार्किंग और डेटाबेस में सुरक्षित करना ---
         if submitted:
