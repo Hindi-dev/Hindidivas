@@ -308,22 +308,37 @@ if unique_code:
     
     components.html(timer_html, height=170)
     
-    with st.form("mcq_quiz_form"):
+    with st.form("mcq_quiz_form", border=False):
         user_answers = {}
         
+        # Google Form जैसा लुक देने के लिए कस्टम CSS
+        st.markdown("""
+        <style>
+        /* रेडियो बटन के बीच थोड़ा गैप देने के लिए */
+        div.row-widget.stRadio > div {
+            gap: 12px;
+            padding-left: 10px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         for i, q_data in enumerate(IDIOMS_QUESTIONS):
-            st.markdown(f"**{q_data['q']}**")
-            user_answers[i] = st.radio(
-                f"Select {i}", 
-                q_data['options'], 
-                key=f"q_{i}", 
-                index=None, 
-                label_visibility="collapsed"
-            )
-            st.markdown("<hr style='margin: 10px 0; border: 0.5px solid #e0e0e0;'>", unsafe_allow_html=True)
-            
+            # हर प्रश्न के लिए एक अलग 'Card' (बॉर्डर वाला कंटेनर) बनाएं
+            with st.container(border=True):
+                # Google Form जैसी फॉन्ट स्टाइल और रंग
+                st.markdown(f"<div style='font-family: Arial, sans-serif; font-size: 16px; font-weight: 600; color: #202124; margin-bottom: 15px;'>{q_data['q']}</div>", unsafe_allow_html=True)
+                
+                user_answers[i] = st.radio(
+                    f"Select {i}", 
+                    q_data['options'], 
+                    key=f"q_{i}", 
+                    index=None, 
+                    label_visibility="collapsed"
+                )
+        
         st.markdown("<br>", unsafe_allow_html=True)
         
+        # सबमिट बटन
         submitted = st.form_submit_button("✅ अपना टेस्ट जमा करें (Submit Test)", use_container_width=True)
         
         # --- 9. मार्किंग और डेटाबेस में सुरक्षित करना ---
