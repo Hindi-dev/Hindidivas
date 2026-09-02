@@ -120,9 +120,9 @@ COMPETITIONS = {
     "idioms": {
         "name": "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली",
         "time_limit_mins": 25, 
-        "competition_date": "2026-08-30",
-        "start_time": "15:50",
-        "end_time": "21:15",
+        "competition_date": "2026-09-02",
+        "start_time": "13:10",
+        "end_time": "13:20",
         "is_mcq": True
     },
 }
