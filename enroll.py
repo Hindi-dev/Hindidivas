@@ -42,7 +42,6 @@ if st.session_state.test_submitted:
     st.success("✅ आपका परिणाम सुरक्षित रूप से हमारे पास दर्ज कर लिया गया है। अब आप इस पेज/टैब को सुरक्षित रूप से बंद कर सकते हैं।")
     st.stop() 
 
-
 # --- 3. डेटाबेस कनेक्शन ---
 if st.button("🌐 इंटरनेट कनेक्शन जांचें"):
     st.toast("आपका इंटरनेट सही ढंग से काम कर रहा है!", icon="✅")
@@ -119,10 +118,10 @@ IDIOMS_QUESTIONS = [
 COMPETITIONS = {
     "idioms": {
         "name": "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली",
-        "time_limit_mins": 25, 
+        "time_limit_mins": 10, 
         "competition_date": "2026-09-02",
-        "start_time": "13:10",
-        "end_time": "13:20",
+        "start_time": "14:05",
+        "end_time": "14:15",
         "is_mcq": True
     },
 }
@@ -135,9 +134,7 @@ if not comp_slug or comp_slug not in COMPETITIONS:
     st.stop()
 
 competition_info = COMPETITIONS[comp_slug]
-
-st.markdown(f"<h2 style='text-align: center; color: #004B87;'>{competition_info['name']}</h2>", unsafe_allow_html=True)
-st.markdown("---")
+st.markdown(f"<h2 style='text-align: center; color: #004B87;'>{competition_info['name']}</h2><hr>", unsafe_allow_html=True)
 
 # --- 6. दिनांक और समय विंडो जांच ---
 ist_offset = datetime.timedelta(hours=5, minutes=30)
@@ -178,7 +175,6 @@ if unique_code:
             st.stop()
         else:
             user_data = user_check.data[0]
-            
             attempt_check = supabase.table("competition_enrollments").select("*").eq("unique_code", unique_code).eq("competition_slug", comp_slug).execute()
             
             if len(attempt_check.data) > 0:
@@ -196,7 +192,6 @@ if unique_code:
     st.markdown("---")
     st.markdown("### 📝 बहुविकल्पीय प्रश्न (MCQs)")
     
-    # 🚀 चिपका हुआ (Sticky/Floating) लाइव टाइमर
     timer_html = f"""
     <div id="timer-container" style="background-color: rgba(227, 242, 253, 0.95); border: 2px solid #2196F3; border-radius: 8px; padding: 10px; text-align: center; font-family: Arial, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.15); backdrop-filter: blur(4px);">
         <h3 style="margin: 0; color: #004B87; font-size: 15px;">⏳ समय शेष</h3>
@@ -206,34 +201,29 @@ if unique_code:
         </div>
     </div>
     <style>
-        @keyframes blinker {{
-            50% {{ opacity: 0; }}
-        }}
+        @keyframes blinker {{ 50% {{ opacity: 0; }} }}
     </style>
     <script>
-        // राइट-क्लिक और कॉपी-पेस्ट बंद करें
         window.parent.document.addEventListener('contextmenu', e => e.preventDefault());
         window.parent.document.addEventListener('copy', e => e.preventDefault());
         window.parent.document.addEventListener('cut', e => e.preventDefault());
         window.parent.document.addEventListener('paste', e => e.preventDefault());
 
-        // 🌟 टाइमर को फ्लोटिंग (Sticky) बनाने का कोड
         var iframes = window.parent.document.querySelectorAll('iframe');
         for (var i = 0; i < iframes.length; i++) {{
             if (iframes[i].contentWindow === window) {{
                 var wrapper = iframes[i].parentElement;
                 wrapper.style.position = 'fixed';
-                wrapper.style.bottom = '30px';       // नीचे से 30px
-                wrapper.style.right = '20px';        // दायीं ओर से 20px
-                wrapper.style.width = '180px';       // चौड़ाई
-                wrapper.style.zIndex = '999999';     // सबसे ऊपर रखने के लिए
-                wrapper.style.pointerEvents = 'none';// इसके आर-पार क्लिक हो सके
+                wrapper.style.bottom = '30px';       
+                wrapper.style.right = '20px';        
+                wrapper.style.width = '180px';       
+                wrapper.style.zIndex = '999999';     
+                wrapper.style.pointerEvents = 'none';
                 break;
             }}
         }}
 
         var warnings = 0;
-
         function autoSubmitTest() {{
             var buttons = window.parent.document.querySelectorAll('button');
             for (var i = 0; i < buttons.length; i++) {{
@@ -244,12 +234,10 @@ if unique_code:
             }}
         }}
 
-        // फुल-स्क्रीन मॉनिटरिंग
         function enforceSecurity() {{
             if (window.parent.document.hidden || (!window.parent.document.fullscreenElement && !window.parent.document.webkitIsFullScreen)) {{
                 warnings++;
                 alert("⚠️ चेतावनी: टैब बदलना या फुल-स्क्रीन से बाहर जाना वर्जित है! उल्लंघन: " + warnings + "/2");
-                
                 if (warnings >= 2) {{
                     alert("❌ सुरक्षा नियमों के उल्लंघन के कारण आपका टेस्ट स्वतः सबमिट किया जा रहा है।");
                     autoSubmitTest();
@@ -262,7 +250,6 @@ if unique_code:
         window.parent.document.addEventListener('visibilitychange', enforceSecurity);
         window.parent.document.addEventListener('fullscreenchange', enforceSecurity);
 
-        // माइक मॉनिटरिंग (Gemini Live/Voice Assistant रोक)
         navigator.mediaDevices.getUserMedia({{ audio: true, video: false }})
         .then(function(stream) {{
             var audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -281,9 +268,7 @@ if unique_code:
                 var array = new Uint8Array(analyser.frequencyBinCount);
                 analyser.getByteFrequencyData(array);
                 var values = 0;
-                for (var i = 0; i < array.length; i++) {{
-                    values += (array[i]);
-                }}
+                for (var i = 0; i < array.length; i++) {{ values += (array[i]); }}
                 var average = values / array.length;
 
                 if (average > 40) {{
@@ -294,9 +279,7 @@ if unique_code:
                         warnings++;
                         if (warnings >= 2) {{ autoSubmitTest(); }}
                     }}
-                }} else {{
-                    talkingTime = 0;
-                }}
+                }} else {{ talkingTime = 0; }}
             }}
         }})
         .catch(function(err) {{
@@ -304,7 +287,6 @@ if unique_code:
             autoSubmitTest();
         }});
 
-        // टाइमर लॉजिक
         var endTimeStr = "{end_time}"; 
         var now = new Date();
         var parts = endTimeStr.split(":");
@@ -329,7 +311,6 @@ if unique_code:
 
             var m = minutes < 10 ? "0" + minutes : minutes;
             var s = seconds < 10 ? "0" + seconds : seconds;
-
             document.getElementById("clock").innerHTML = m + ":" + s;
 
             if (distance <= 60000) {{
@@ -341,61 +322,29 @@ if unique_code:
         }}, 1000);
     </script>
     """
-    
     components.html(timer_html, height=120)
     
-    # --- 2. परिणाम का एकदम साफ़ और अलग पेज (Session State) ---
-if "test_submitted" not in st.session_state:
-    st.session_state.test_submitted = False
-    st.session_state.results = {}
-
-if st.session_state.test_submitted:
-    st.balloons()
-    st.markdown("<br><h2 style='text-align: center; color: #4CAF50;'>🎉 परीक्षा सफलतापूर्वक जमा हो गई!</h2>", unsafe_allow_html=True)
-    st.markdown("<hr style='border: 1px solid #e0e0e0;'>", unsafe_allow_html=True)
-    
-    res = st.session_state.results
-    
-    # MCQ का रिज़ल्ट
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.info(f"✅ **सही उत्तर:** {res['correct']}")
-    with col2:
-        st.error(f"❌ **गलत उत्तर:** {res['wrong']}")
-    with col3:
-        st.warning(f"⚪ **छोड़े गए:** {res['unanswered']}")
-        
-    st.markdown(f"<h5 style='color: #D32F2F; text-align: center;'>काटे गए अंक (Negative Marks): -{res['negative']}</h5>", unsafe_allow_html=True)
-    
-    # टाइपिंग का रिज़ल्ट
-    st.markdown("<br><h4 style='text-align: center; color: #333;'>⌨️ टाइपिंग टेस्ट का स्कोर</h4>", unsafe_allow_html=True)
-    col_t1, col_t2 = st.columns(2)
-    with col_t1:
-        st.success(f"⚡ **स्पीड:** {res['typing_wpm']} WPM")
-    with col_t2:
-        st.success(f"🎯 **शुद्धता (Accuracy):** {res['typing_accuracy']}%")
-
-    st.markdown(f"<h2 style='text-align:center; color: #004B87; background-color: #E3F2FD; padding: 20px; border-radius: 10px; margin-top: 20px;'>🏆 MCQ अंतिम स्कोर: {res['final_score']} / {res['total']}</h2>", unsafe_allow_html=True)
-    
-    st.success("✅ आपका परिणाम सुरक्षित रूप से हमारे पास दर्ज कर लिया गया है। अब आप इस पेज को बंद कर सकते हैं।")
-    st.stop() 
-
-
-# ... (यहाँ बीच का डेटाबेस कनेक्शन और टाइमर वाला कोड पहले जैसा ही रहेगा) ...
-
-
-    with st.form("mcq_quiz_form", border=False):
+    # --- 9. परीक्षा फॉर्म और सबमिशन ---
+    with st.form("mcq_quiz_form"):
         user_answers = {}
         
         st.markdown("""
         <style>
-        div.row-widget.stRadio > div { gap: 12px; padding-left: 10px; }
+        div.row-widget.stRadio > div {
+            gap: 12px;
+            padding-left: 10px;
+        }
         </style>
         """, unsafe_allow_html=True)
         
         for i, q_data in enumerate(IDIOMS_QUESTIONS):
-            with st.container(border=True):
-                st.markdown(f"<div style='font-family: Arial, sans-serif; font-size: 16px; font-weight: 600; color: #202124; margin-bottom: 15px;'>{q_data['q']}</div>", unsafe_allow_html=True)
+            with st.container():
+                st.markdown(f"""
+                <div style='font-family: Arial, sans-serif; font-size: 16px; font-weight: 600; color: #202124; margin-bottom: 10px; padding-top: 15px; border-top: 1px solid #e0e0e0;'>
+                    {q_data['q']}
+                </div>
+                """, unsafe_allow_html=True)
+                
                 user_answers[i] = st.radio(
                     f"Select {i}", 
                     q_data['options'], 
@@ -404,20 +353,7 @@ if st.session_state.test_submitted:
                     label_visibility="collapsed"
                 )
             
-        st.markdown("<hr style='border: 1px solid #e0e0e0;'>", unsafe_allow_html=True)
-        
-        # --- 🚀 नया: टाइपिंग टेस्ट का स्कोर बॉक्स ---
-        st.markdown("### ⌨️ टाइपिंग टेस्ट का स्कोर (यदि लागू हो)")
-        st.info("यदि आपने टाइपिंग टेस्ट दिया है, तो परीक्षक के मूल्यांकन हेतु अपना स्कोर यहाँ दर्ज करें। (अन्यथा इसे 0 रहने दें)")
-        col_type1, col_type2 = st.columns(2)
-        with col_type1:
-            typing_wpm = st.number_input("स्पीड (Words Per Minute)", min_value=0, max_value=200, value=0, step=1)
-        with col_type2:
-            typing_accuracy = st.number_input("शुद्धता (Accuracy %)", min_value=0.0, max_value=100.0, value=0.0, step=0.1)
-            
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # सबमिट बटन
         submitted = st.form_submit_button("✅ अपना टेस्ट जमा करें (Submit Test)", use_container_width=True)
         
         if submitted:
@@ -439,16 +375,13 @@ if st.session_state.test_submitted:
             
             with st.spinner("आपका परिणाम सुरक्षित किया जा रहा है..."):
                 try:
-                    # डेटाबेस में MCQ और टाइपिंग दोनों का स्कोर सेव करें
                     supabase.table("competition_enrollments").insert({
                         "unique_code": unique_code,
                         "competition_slug": comp_slug,
                         "score": final_score,
                         "correct_answers": correct_answers,
                         "wrong_answers": wrong_answers,
-                        "unanswered": unanswered,
-                        "typing_wpm": typing_wpm,
-                        "typing_accuracy": typing_accuracy
+                        "unanswered": unanswered
                     }).execute()
                 except Exception as e:
                     st.error(f"स्कोर सेव करने में तकनीकी त्रुटि: {e}")
@@ -460,9 +393,7 @@ if st.session_state.test_submitted:
                 "unanswered": unanswered,
                 "negative": negative_marks,
                 "final_score": final_score,
-                "total": len(IDIOMS_QUESTIONS),
-                "typing_wpm": typing_wpm,
-                "typing_accuracy": typing_accuracy
+                "total": len(IDIOMS_QUESTIONS)
             }
             st.session_state.test_submitted = True
             st.rerun()
