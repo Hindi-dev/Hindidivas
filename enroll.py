@@ -1,53 +1,21 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import pandas as pd
+from datetime import datetime, timezone, timedelta
+import urllib.request
+import time
 from supabase import create_client, Client
-import datetime
 
-# --- 1. पेज सेटिंग और एंटी-कॉपी CSS ---
-st.set_page_config(page_title="परीक्षा पोर्टल | हिंदी पखवाड़ा 2026", page_icon="📝", layout="centered")
+# --- 1. PAGE CONFIGURATION & ANTI-COPY CSS ---
+st.set_page_config(page_title="प्रतियोगिता नामांकन / Competition Enrollment", layout="centered", page_icon="📝")
 
 st.markdown("""
 <style>
-* {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-}
+* { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. परिणाम का एकदम साफ़ और अलग पेज (Session State) ---
-if "test_submitted" not in st.session_state:
-    st.session_state.test_submitted = False
-    st.session_state.results = {}
-
-if st.session_state.test_submitted:
-    st.balloons()
-    st.markdown("<br><h2 style='text-align: center; color: #4CAF50;'>🎉 परीक्षा सफलतापूर्वक जमा हो गई!</h2>", unsafe_allow_html=True)
-    st.markdown("<hr style='border: 1px solid #e0e0e0;'>", unsafe_allow_html=True)
-    
-    res = st.session_state.results
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.info(f"✅ **सही उत्तर:** {res['correct']}")
-    with col2:
-        st.error(f"❌ **गलत उत्तर:** {res['wrong']}")
-    with col3:
-        st.warning(f"⚪ **छोड़े गए:** {res['unanswered']}")
-        
-    st.markdown(f"<h4 style='color: #D32F2F; text-align: center;'>काटे गए अंक (Negative Marks): -{res['negative']}</h4>", unsafe_allow_html=True)
-    st.markdown(f"<h2 style='text-align:center; color: #004B87; background-color: #E3F2FD; padding: 20px; border-radius: 10px; margin-top: 20px;'>🏆 आपका अंतिम स्कोर: {res['final_score']} / {res['total']}</h2>", unsafe_allow_html=True)
-    
-    st.success("✅ आपका परिणाम सुरक्षित रूप से हमारे पास दर्ज कर लिया गया है। अब आप इस पेज/टैब को सुरक्षित रूप से बंद कर सकते हैं।")
-    st.stop() 
-
-# --- 3. डेटाबेस कनेक्शन ---
-if st.button("🌐 इंटरनेट कनेक्शन जांचें"):
-    st.toast("आपका इंटरनेट सही ढंग से काम कर रहा है!", icon="✅")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
+# --- 2. DATABASE CONNECTION ---
 @st.cache_resource
 def init_connection() -> Client:
     url = st.secrets["SUPABASE_URL"]
@@ -57,10 +25,23 @@ def init_connection() -> Client:
 try:
     supabase = init_connection()
 except Exception as e:
-    st.error("डेटाबेस से जुड़ने में त्रुटि। कृपया इंटरनेट कनेक्शन या Secrets की जांच करें।")
+    st.error(f"डेटाबेस कनेक्शन विफल / Database connection failed: {e}")
     st.stop()
 
-# --- 4. 50 बहुविकल्पीय प्रश्नों की सूची (MCQs) ---
+# --- 3. COMPETITION CONFIGURATION (07 EVENTS) ---
+base_url = f"{st.secrets.get('SUPABASE_URL', '')}/storage/v1/object/public/competition_documents/"
+
+COMPETITIONS = {
+    "idioms": {"name": "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली", "time_limit_mins": 25, "competition_date": "2026-09-17", "start_time": "10:00", "end_time": "23:59", "question": f"{base_url}idioms_question.pdf"},
+    "dictionary": {"name": "शब्दकोश प्रतियोगिता", "time_limit_mins": 45, "competition_date": "2026-09-18", "start_time": "10:00", "end_time": "23:59", "question": f"{base_url}dictionary_question.pdf"},
+    "typing": {"name": "हिंदी टंकण प्रतियोगिता", "time_limit_mins": 20, "competition_date": "2026-09-21", "start_time": "10:00", "end_time": "23:59", "question": f"{base_url}typing_question.pdf"},
+    "essay": {"name": "निबंध लेखन", "time_limit_mins": 60, "competition_date": "2026-09-23", "start_time": "10:00", "end_time": "23:59", "question": f"{base_url}essay_question.pdf"},
+    "debate": {"name": "वाद-विवाद प्रतियोगिता", "time_limit_mins": 60, "competition_date": "2026-09-24", "start_time": "10:00", "end_time": "23:59", "question": f"{base_url}debate_question.pdf"},
+    "picture": {"name": "तस्वीर क्या बोलती है", "time_limit_mins": 30, "competition_date": "2026-09-25", "start_time": "10:00", "end_time": "23:59", "question": f"{base_url}picture_question.pdf"},
+    "drafting": {"name": "टिप्पणी एवं पत्र मसौदा लेखन", "time_limit_mins": 45, "competition_date": "2026-09-28", "start_time": "10:00", "end_time": "23:59", "question": f"{base_url}drafting_question.pdf"}
+}
+
+# --- 4. FULL 50 QUESTIONS ---
 IDIOMS_QUESTIONS = [
     {"q": "1. अपनी डफली अपना राग", "options": ["स्वतंत्र होना", "अपना दुखड़ा रोना", "संगठन का अभाव", "सबका अपने-अपने मन के अनुसार चलना"], "ans": "सबका अपने-अपने मन के अनुसार चलना"},
     {"q": "2. कोई इर घाट तो कोई बीर घाट", "options": ["बार-बार कथन बदलना", "ताल-मेल ना होना", "तितर-बितर होना", "बहुत चालाक होना"], "ans": "ताल-मेल ना होना"},
@@ -114,297 +95,300 @@ IDIOMS_QUESTIONS = [
     {"q": "50. 'Propriety Audit' का हिन्दी में सही अनुवाद क्या है?", "options": ["औचित्य लेखापरीक्षा", "संपत्ति लेखापरीक्षा", "यथार्थ लेखापरीक्षा", "उपयुक्तता लेखापरीक्षा"], "ans": "औचित्य लेखापरीक्षा"}
 ]
 
-# --- 5. प्रतियोगिताओं की समय सारणी ---
-COMPETITIONS = {
-    "idioms": {
-        "name": "हिंदी मुहावरें, लोकोक्तियां एवं प्रशासनिक शब्दावली",
-        "time_limit_mins": 10, 
-        "competition_date": "2026-09-02",
-        "start_time": "14:30",
-        "end_time": "14:40",
-        "is_mcq": True
-    },
-}
-
-query_params = st.query_params
-comp_slug = query_params.get("comp")
+# --- 5. URL ROUTING & VALIDATION ---
+comp_slug = st.query_params.get("comp")
 
 if not comp_slug or comp_slug not in COMPETITIONS:
-    st.error("अमान्य प्रतियोगिता लिंक! कृपया सही लिंक का उपयोग करें।")
+    st.error("अमान्य प्रतियोगिता लिंक / Invalid Competition Link")
     st.stop()
 
-competition_info = COMPETITIONS[comp_slug]
-st.markdown(f"<h2 style='text-align: center; color: #004B87;'>{competition_info['name']}</h2><hr>", unsafe_allow_html=True)
+comp_details = COMPETITIONS[comp_slug]
+st.title(comp_details["name"])
+st.write(f"**समय सीमा / Time Limit:** {comp_details['time_limit_mins']} मिनट / Minutes")
+st.divider()
 
-# --- 6. दिनांक और समय विंडो जांच ---
-ist_offset = datetime.timedelta(hours=5, minutes=30)
-now = datetime.datetime.utcnow() + ist_offset
-
+IST = timezone(timedelta(hours=5, minutes=30))
+now = datetime.now(IST)
 today_str = now.strftime("%Y-%m-%d")
 current_time_str = now.strftime("%H:%M")
 
-comp_date = competition_info["competition_date"]
-start_time = competition_info["start_time"]
-end_time = competition_info["end_time"]
+comp_date = comp_details["competition_date"]
+start_time = comp_details.get("start_time", "00:00")
+end_time = comp_details.get("end_time", "23:59")
+formatted_scheduled_date = datetime.strptime(comp_date, "%Y-%m-%d").strftime('%d/%m/%Y')
 
-if today_str != comp_date:
-    st.warning(f"🚫 यह प्रतियोगिता वर्तमान में बंद है। इसकी निर्धारित तिथि **{comp_date}** है।")
+if today_str < comp_date:
+    st.warning("यह प्रतियोगिता अभी शुरू नहीं हुई है। / This competition has not started yet.")
+    st.info(f"📅 **निर्धारित तिथि / Scheduled Date:** {formatted_scheduled_date}")
+    st.stop()
+elif today_str > comp_date:
+    st.error("यह प्रतियोगिता बंद हो चुकी है। / This competition is closed.")
     st.stop()
 else:
     if current_time_str < start_time:
-        st.warning(f"⏳ **प्रतियोगिता अभी शुरू नहीं हुई है!**")
+        st.warning("⏳ **प्रतियोगिता अभी शुरू नहीं हुई है!**")
         st.info(f"यह टेस्ट आज **{start_time} बजे** से **{end_time} बजे** के बीच ही सक्रिय रहेगा।")
         st.info("🔄 **कृपया प्रतीक्षा करें:** यह पेज अपने आप रिफ्रेश हो रहा है। समय होते ही टेस्ट स्वतः खुल जाएगा।")
-        
-        # ऑटो-रिफ्रेश कोड (हर 30 सेकंड में पेज रीलोड करेगा)
-        components.html("""
-            <script>
-                setTimeout(function() {
-                    window.parent.location.reload();
-                }, 30000);
-            </script>
-        """, height=0)
-        
+        components.html("<script>setTimeout(function() { window.parent.location.reload(); }, 30000);</script>", height=0)
         st.stop()
     elif current_time_str > end_time:
-        st.error(f"❌ **समय समाप्त!**")
-        st.warning(f"यह प्रतियोगिता आज **{end_time} बजे** बंद हो चुकी है। अब आप इसमें भाग नहीं ले सकते।")
+        st.error("❌ **समय समाप्त!** यह प्रतियोगिता बंद हो चुकी है।")
         st.stop()
     else:
-        st.success(f"✅ प्रतियोगिता सक्रिय है। यह विंडो **{end_time} बजे** बंद हो जाएगी। कृपया समय सीमा के भीतर टेस्ट सबमिट करें।")
+        st.success("यह प्रतियोगिता वर्तमान में सक्रिय है। / This competition is currently ACTIVE.")
 
-# --- 7. लॉगिन और सुरक्षा जांच ---
-st.markdown("### 🔑 अपना 4-अंकीय कोड दर्ज करें")
-unique_code = st.text_input("पंजीकरण के समय प्राप्त कोड (Unique Code):", max_chars=4, type="password")
+st.divider()
+
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.subheader("लॉगिन / Login")
+with col2:
+    if st.button("🌐 इंटरनेट जांचें / Check Internet"):
+        with st.spinner("जांच हो रही है..."):
+            try:
+                start_t = time.time()
+                urllib.request.urlopen('https://www.google.com', timeout=3)
+                latency = round((time.time() - start_t) * 1000)
+                if latency < 800: st.success(f"Speed: {latency}ms - Good")
+                else: st.warning(f"Speed: {latency}ms - Slow")
+            except:
+                st.error("इंटरनेट काम नही कर रहा है।")
+
+unique_code = st.text_input("अपना 4-अंकीय पंजीकरण कोड दर्ज करें / Enter 4-digit Code", max_chars=4, type="password")
 
 if unique_code:
-    try:
-        user_check = supabase.table("registrations").select("*").eq("unique_code", unique_code).execute()
+    user_check = supabase.table("registrations").select("name").eq("unique_code", unique_code).execute()
+    
+    if len(user_check.data) == 0:
+        st.error("अमान्य कोड। कृपया पहले पंजीकरण करें। / Invalid Code. Please register first.")
+        st.stop()
         
-        if len(user_check.data) == 0:
-            st.error("❌ अमान्य कोड! कृपया सही 4-अंकीय पंजीकरण कोड दर्ज करें।")
-            st.stop()
-        else:
-            user_data = user_check.data[0]
-            attempt_check = supabase.table("competition_enrollments").select("*").eq("unique_code", unique_code).eq("competition_slug", comp_slug).execute()
-            
-            if len(attempt_check.data) > 0:
-                st.error(f"🛑 क्षमा करें {user_data.get('name', 'प्रतिभागी')}!")
-                st.warning("आप पहले ही इस प्रतियोगिता की उत्तर-पुस्तिका जमा कर चुके हैं। एक प्रतिभागी को केवल एक ही प्रयास (Attempt) की अनुमति है।")
+    user_name = user_check.data[0]['name']
+    st.success(f"स्वागत है / Welcome, **{user_name}**!")
+    
+    enroll_check = supabase.table("competition_enrollments").select("*").eq("unique_code", unique_code).eq("competition_slug", comp_slug).execute()
+    has_attempted = len(enroll_check.data) > 0
+    st.markdown("---")
+
+    # ==========================================
+    # ROUTE 1: IDIOMS (LIVE MCQ + ANTI CHEAT)
+    # ==========================================
+    if comp_slug == "idioms":
+        if "idioms_submitted" not in st.session_state:
+            st.session_state.idioms_submitted = False
+            st.session_state.idioms_results = {}
+
+        if has_attempted or st.session_state.idioms_submitted:
+            if st.session_state.idioms_submitted:
+                res = st.session_state.idioms_results
+                st.balloons()
+                st.markdown("<h2 style='text-align: center; color: #4CAF50;'>🎉 परीक्षा सफलतापूर्वक जमा हो गई!</h2>", unsafe_allow_html=True)
+                c1, c2, c3 = st.columns(3)
+                c1.info(f"✅ सही उत्तर: {res['correct']}")
+                c2.error(f"❌ गलत उत्तर: {res['wrong']}")
+                c3.warning(f"⚪ छोड़े गए: {res['unanswered']}")
+                st.markdown(f"<h3 style='text-align:center; color:#004B87;'>🏆 स्कोर: {res['final_score']}</h3>", unsafe_allow_html=True)
                 st.stop()
             else:
-                st.info(f"स्वागत है, **{user_data.get('name', 'प्रतिभागी')}**! आपके पास 50 प्रश्नों के लिए 25 मिनट हैं। **प्रत्येक गलत उत्तर के लिए 0.25 अंक काटे जाएंगे (Negative Marking)।**")
-                
-    except Exception as e:
-        st.error(f"सत्यापन में त्रुटि: {e}")
-        st.stop()
+                st.error("🛑 आप पहले ही यह परीक्षा जमा कर चुके हैं।")
+                st.stop()
 
-    # --- 8. परीक्षा फॉर्म और फ्लोटिंग टाइमर ---
-    st.markdown("---")
-    st.markdown("### 📝 बहुविकल्पीय प्रश्न (MCQs)")
-    
-    timer_html = f"""
-    <div id="timer-container" style="background-color: rgba(227, 242, 253, 0.95); border: 2px solid #2196F3; border-radius: 8px; padding: 10px; text-align: center; font-family: Arial, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.15); backdrop-filter: blur(4px);">
-        <h3 style="margin: 0; color: #004B87; font-size: 15px;">⏳ समय शेष</h3>
-        <div id="clock" style="font-size: 28px; font-weight: bold; color: #333; margin: 5px 0;">--:--</div>
-        <div id="alert-msg" style="color: #D32F2F; font-weight: bold; font-size: 13px; display: none; margin: 0; animation: blinker 1s linear infinite;">
-            ⚠️ जल्दी करें!
+        st.markdown("### 📝 बहुविकल्पीय प्रश्न (MCQs) - नेगेटिव मार्किंग (-0.25)")
+        
+        timer_html = f"""
+        <div id="timer-container" style="background-color: rgba(227, 242, 253, 0.95); border: 2px solid #2196F3; border-radius: 8px; padding: 10px; text-align: center; font-family: Arial, sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            <h3 style="margin: 0; color: #004B87; font-size: 15px;">⏳ समय शेष</h3>
+            <div id="clock" style="font-size: 28px; font-weight: bold; color: #D32F2F; margin: 5px 0;">--:--</div>
         </div>
-    </div>
-    <style>
-        @keyframes blinker {{ 50% {{ opacity: 0; }} }}
-    </style>
-    <script>
-        window.parent.document.addEventListener('contextmenu', e => e.preventDefault());
-        window.parent.document.addEventListener('copy', e => e.preventDefault());
-        window.parent.document.addEventListener('cut', e => e.preventDefault());
-        window.parent.document.addEventListener('paste', e => e.preventDefault());
+        <script>
+            window.parent.document.addEventListener('contextmenu', e => e.preventDefault());
+            window.parent.document.addEventListener('copy', e => e.preventDefault());
+            window.parent.document.addEventListener('paste', e => e.preventDefault());
 
-        var iframes = window.parent.document.querySelectorAll('iframe');
-        for (var i = 0; i < iframes.length; i++) {{
-            if (iframes[i].contentWindow === window) {{
-                var wrapper = iframes[i].parentElement;
-                wrapper.style.position = 'fixed';
-                wrapper.style.bottom = '30px';       
-                wrapper.style.right = '20px';        
-                wrapper.style.width = '180px';       
-                wrapper.style.zIndex = '999999';     
-                wrapper.style.pointerEvents = 'none';
-                break;
-            }}
-        }}
-
-        var warnings = 0;
-        function autoSubmitTest() {{
-            var buttons = window.parent.document.querySelectorAll('button');
-            for (var i = 0; i < buttons.length; i++) {{
-                if (buttons[i].innerText.includes('अपना टेस्ट जमा करें')) {{
-                    buttons[i].click();
-                    break;
+            var warnings = 0;
+            function autoSubmitTest() {{
+                var buttons = window.parent.document.querySelectorAll('button');
+                for (var i = 0; i < buttons.length; i++) {{
+                    if (buttons[i].innerText.includes('अपना टेस्ट जमा करें')) {{ buttons[i].click(); break; }}
                 }}
             }}
-        }}
 
-        function enforceSecurity() {{
-            if (window.parent.document.hidden || (!window.parent.document.fullscreenElement && !window.parent.document.webkitIsFullScreen)) {{
-                warnings++;
-                alert("⚠️ चेतावनी: टैब बदलना या फुल-स्क्रीन से बाहर जाना वर्जित है! उल्लंघन: " + warnings + "/2");
-                if (warnings >= 2) {{
-                    alert("❌ सुरक्षा नियमों के उल्लंघन के कारण आपका टेस्ट स्वतः सबमिट किया जा रहा है।");
-                    autoSubmitTest();
-                }} else {{
-                    window.parent.document.documentElement.requestFullscreen().catch((e) => console.log(e));
+            function enforceSecurity() {{
+                if (window.parent.document.hidden || (!window.parent.document.fullscreenElement && !window.parent.document.webkitIsFullScreen)) {{
+                    warnings++;
+                    alert("⚠️ चेतावनी: टैब बदलना वर्जित है! उल्लंघन: " + warnings + "/2");
+                    if (warnings >= 2) {{ autoSubmitTest(); }}
+                    else {{ window.parent.document.documentElement.requestFullscreen().catch(e => console.log(e)); }}
                 }}
             }}
-        }}
-        
-        window.parent.document.addEventListener('visibilitychange', enforceSecurity);
-        window.parent.document.addEventListener('fullscreenchange', enforceSecurity);
+            window.parent.document.addEventListener('visibilitychange', enforceSecurity);
+            window.parent.document.addEventListener('fullscreenchange', enforceSecurity);
 
-        navigator.mediaDevices.getUserMedia({{ audio: true, video: false }})
-        .then(function(stream) {{
-            var audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            var analyser = audioContext.createAnalyser();
-            var microphone = audioContext.createMediaStreamSource(stream);
-            var javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+            navigator.mediaDevices.getUserMedia({{ audio: true, video: false }}).then(function(stream) {{
+                var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                var analyser = audioContext.createAnalyser();
+                var microphone = audioContext.createMediaStreamSource(stream);
+                var javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                analyser.smoothingTimeConstant = 0.8; analyser.fftSize = 1024;
+                microphone.connect(analyser); analyser.connect(javascriptNode); javascriptNode.connect(audioContext.destination);
 
-            analyser.smoothingTimeConstant = 0.8;
-            analyser.fftSize = 1024;
-            microphone.connect(analyser);
-            analyser.connect(javascriptNode);
-            javascriptNode.connect(audioContext.destination);
+                var talkingTime = 0;
+                javascriptNode.onaudioprocess = function() {{
+                    var array = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(array);
+                    var values = 0; for (var i = 0; i < array.length; i++) {{ values += (array[i]); }}
+                    if ((values / array.length) > 40) {{
+                        talkingTime++;
+                        if (talkingTime > 150) {{ alert("⚠️ बोलना मना है!"); talkingTime = 0; warnings++; if(warnings>=2) autoSubmitTest(); }}
+                    }} else {{ talkingTime = 0; }}
+                }}
+            }}).catch(err => {{ alert("⚠️ माइक्रोफोन की अनुमति दें!"); autoSubmitTest(); }});
 
-            var talkingTime = 0;
-            javascriptNode.onaudioprocess = function() {{
-                var array = new Uint8Array(analyser.frequencyBinCount);
-                analyser.getByteFrequencyData(array);
-                var values = 0;
-                for (var i = 0; i < array.length; i++) {{ values += (array[i]); }}
-                var average = values / array.length;
+            var time_limit = {comp_details['time_limit_mins']} * 60;
+            var x = setInterval(function() {{
+                time_limit--;
+                var m = Math.floor(time_limit / 60); var s = time_limit % 60;
+                document.getElementById("clock").innerHTML = (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+                if (time_limit <= 0) {{ clearInterval(x); alert("समय समाप्त! ऑटो-सबमिट हो रहा है..."); autoSubmitTest(); }}
+            }}, 1000);
+        </script>
+        """
+        components.html(timer_html, height=100)
 
-                if (average > 40) {{
-                    talkingTime++;
-                    if (talkingTime > 150) {{
-                        alert("⚠️ सुरक्षा चेतावनी: परीक्षा के दौरान बोलना या किसी AI वॉयस टूल का उपयोग करना वर्जित है!");
-                        talkingTime = 0; 
-                        warnings++;
-                        if (warnings >= 2) {{ autoSubmitTest(); }}
-                    }}
-                }} else {{ talkingTime = 0; }}
-            }}
-        }})
-        .catch(function(err) {{
-            alert("⚠️ परीक्षा शुरू करने के लिए माइक्रोफोन की अनुमति (Microphone Permission) देना अनिवार्य है!");
-            autoSubmitTest();
-        }});
-
-        var endTimeStr = "{end_time}"; 
-        var now = new Date();
-        var parts = endTimeStr.split(":");
-        var countDownDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(parts[0]), parseInt(parts[1]), 0).getTime();
-
-        var x = setInterval(function() {{
-            var nowTime = new Date().getTime();
-            var distance = countDownDate - nowTime;
-
-            if (distance <= 0) {{
-                clearInterval(x);
-                document.getElementById("clock").innerHTML = "00:00";
-                document.getElementById("alert-msg").innerHTML = "⏳ आपका टेस्ट ऑटो-सबमिट हो रहा है...";
-                document.getElementById("alert-msg").style.display = "block";
-                document.getElementById("alert-msg").style.animation = "none";
-                autoSubmitTest();
-                return;
-            }}
-
-            var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            var seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-            var m = minutes < 10 ? "0" + minutes : minutes;
-            var s = seconds < 10 ? "0" + seconds : seconds;
-            document.getElementById("clock").innerHTML = m + ":" + s;
-
-            if (distance <= 60000) {{
-                document.getElementById("timer-container").style.backgroundColor = "#FFCDD2";
-                document.getElementById("timer-container").style.borderColor = "#D32F2F";
-                document.getElementById("clock").style.color = "#D32F2F";
-                document.getElementById("alert-msg").style.display = "block";
-            }}
-        }}, 1000);
-    </script>
-    """
-    components.html(timer_html, height=120)
-    
-    # --- 9. परीक्षा फॉर्म और सबमिशन ---
-    with st.form("mcq_quiz_form"):
-        user_answers = {}
-        
-        st.markdown("""
-        <style>
-        div.row-widget.stRadio > div {
-            gap: 12px;
-            padding-left: 10px;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        for i, q_data in enumerate(IDIOMS_QUESTIONS):
-            with st.container():
-                st.markdown(f"""
-                <div style='font-family: Arial, sans-serif; font-size: 16px; font-weight: 600; color: #202124; margin-bottom: 10px; padding-top: 15px; border-top: 1px solid #e0e0e0;'>
-                    {q_data['q']}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                user_answers[i] = st.radio(
-                    f"Select {i}", 
-                    q_data['options'], 
-                    key=f"q_{i}", 
-                    index=None, 
-                    label_visibility="collapsed"
-                )
-            
-        st.markdown("<br>", unsafe_allow_html=True)
-        submitted = st.form_submit_button("✅ अपना टेस्ट जमा करें (Submit Test)", use_container_width=True)
-        
-        if submitted:
-            correct_answers = 0
-            wrong_answers = 0
-            unanswered = 0
-            
+        with st.form("mcq_quiz_form"):
+            user_answers = {}
+            st.markdown("<style>div.row-widget.stRadio > div { gap: 12px; padding-left: 10px; }</style>", unsafe_allow_html=True)
             for i, q_data in enumerate(IDIOMS_QUESTIONS):
-                user_ans = user_answers[i]
-                if user_ans == q_data['ans']:
-                    correct_answers += 1
-                elif user_ans is not None:
-                    wrong_answers += 1
-                else:
-                    unanswered += 1
+                with st.container():
+                    st.markdown(f"<div style='font-family: Arial, sans-serif; font-size: 16px; font-weight: 600; margin-bottom: 10px; padding-top: 15px; border-top: 1px solid #e0e0e0;'>{q_data['q']}</div>", unsafe_allow_html=True)
+                    user_answers[i] = st.radio(f"Select {i}", q_data['options'], key=f"q_{i}", index=None, label_visibility="collapsed")
+                
+            st.markdown("<br>", unsafe_allow_html=True)
+            submitted = st.form_submit_button("✅ अपना टेस्ट जमा करें (Submit Test)", use_container_width=True)
             
-            negative_marks = wrong_answers * 0.25
-            final_score = correct_answers - negative_marks
+            if submitted:
+                correct_answers = 0; wrong_answers = 0; unanswered = 0
+                for i, q_data in enumerate(IDIOMS_QUESTIONS):
+                    if user_answers[i] == q_data['ans']: correct_answers += 1
+                    elif user_answers[i] is not None: wrong_answers += 1
+                    else: unanswered += 1
+                
+                final_score = correct_answers - (wrong_answers * 0.25)
+                with st.spinner("सुरक्षित किया जा रहा है..."):
+                    try:
+                        supabase.table("competition_enrollments").insert({"unique_code": unique_code, "competition_slug": comp_slug, "score": final_score, "correct_answers": correct_answers, "wrong_answers": wrong_answers, "unanswered": unanswered}).execute()
+                    except Exception as e: st.error(f"त्रुटि: {e}"); st.stop()
+                
+                st.session_state.idioms_results = {"correct": correct_answers, "wrong": wrong_answers, "unanswered": unanswered, "final_score": final_score}
+                st.session_state.idioms_submitted = True
+                st.rerun()
+
+    # ==========================================
+    # ROUTE 2: TYPING (HTML TEST)
+    # ==========================================
+    elif comp_slug == "typing":
+        if has_attempted:
+            st.error("🛑 आप पहले ही टाइपिंग टेस्ट जमा कर चुके हैं।")
+            st.stop()
+
+        st.info("नीचे बॉक्स में टाइप करना शुरू करते ही समय शुरू हो जाएगा। (Hindi Inscript)")
+        supabase_url = st.secrets["SUPABASE_URL"]
+        supabase_key = st.secrets["SUPABASE_KEY"]
+        
+        html_code = f"""
+        <!DOCTYPE html><html lang="hi"><head><meta charset="UTF-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; background-color: #f4f6f8; margin:0; padding:0; }}
+            #main-app {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
+            #text-display {{ font-size: 22px; line-height: 1.8; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; user-select: none; display: flex; flex-wrap: wrap; gap: 5px; height: 160px; overflow-y: hidden; }}
+            .word {{ padding: 2px 4px; border-radius: 3px; }} .current-word {{ background-color: #e0f7fa; font-weight: bold; border-bottom: 3px solid #00acc1; }}
+            .correct {{ color: #2e7d32; }} .incorrect {{ color: #d32f2f; text-decoration: underline; background-color: #ffebee; }}
+            #input-box {{ width: 100%; font-size: 22px; padding: 12px; margin-top: 15px; border: 2px solid #00acc1; border-radius: 5px; outline: none; box-sizing: border-box; }}
+            #timer {{ font-size: 28px; font-weight: bold; color: #d32f2f; float: right; margin-top: -5px; }}
+            .header-info {{ font-size: 18px; font-weight: bold; color: #555; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; }}
+        </style></head>
+        <body>
+            <div id="main-app">
+                <div class="header-info">ID: <span style="color:#00acc1;">{unique_code}</span> <span id="timer">{comp_details['time_limit_mins']}:00</span></div>
+                <div id="text-display"></div>
+                <input type="text" id="input-box" placeholder="यहाँ टाइप करना शुरू करें..." autocomplete="off">
+            </div>
+            <script>
+                document.addEventListener('contextmenu', e => e.preventDefault()); document.addEventListener('copy', e => e.preventDefault()); document.addEventListener('paste', e => e.preventDefault());
+                const corpus = `भारत का इतिहास बहुत समृद्ध और प्राचीन है। यह सिंधु घाटी सभ्यता से शुरू होता है, जो दुनिया की सबसे पुरानी सभ्यताओं में से एक है। भारतीय संविधान दुनिया का सबसे लंबा लिखित संविधान है, जिसे २६ जनवरी १९५० को लागू किया गया था। इसमें नागरिकों के मौलिक अधिकारों और कर्तव्यों का स्पष्ट वर्णन है। भौगोलिक दृष्टि से, भारत विविधताओं वाला देश है। इसके उत्तर में विशाल हिमालय पर्वत श्रृंखला है, जो देश को ठंडी हवाओं से बचाती है। दक्षिण में विशाल हिंद महासागर है। गंगा, यमुना, गोदावरी, और नर्मदा जैसी नदियाँ कृषि के लिए जीवनदायिनी हैं। आधुनिक युग में, भारतीय अंतरिक्ष अनुसंधान संगठन (इसरो) ने अंतरिक्ष विज्ञान के क्षेत्र में अभूतपूर्व प्रगति की है। चंद्रयान और मंगलयान मिशन भारत की वैज्ञानिक क्षमता के उत्कृष्ट उदाहरण हैं। कृषि आज भी भारतीय अर्थव्यवस्था की रीढ़ है, जहाँ लगभग ५० प्रतिशत से अधिक आबादी प्रत्यक्ष या अप्रत्यक्ष रूप से खेती पर निर्भर है। सूचना प्रौद्योगिकी (आईटी) के क्षेत्र में भी भारत ने वैश्विक स्तर पर अपनी पहचान बनाई है। विविधता में एकता भारत की सबसे बड़ी ताकत है। यहाँ विभिन्न धर्मों, जातियों, और भाषाओं के लोग एक साथ शांतिपूर्ण तरीके से रहते हैं। हमें अपने देश की अखंडता और संप्रभुता की रक्षा के लिए हमेशा तत्पर रहना चाहिए। शिक्षा, स्वास्थ्य, और रोजगार के क्षेत्र में निरंतर विकास ही एक सशक्त राष्ट्र के निर्माण का मार्ग प्रशस्त करेगा।`;
+                const baseWords = corpus.replace(/\\n/g, ' ').trim().split(/\s+/).filter(w => w.length > 0);
+                let referenceText = []; while(referenceText.length < 1500) referenceText = referenceText.concat(baseWords);
+                const inscriptMap = {{"q":"ौ","Q":"औ","w":"ै","W":"ऐ","e":"ा","E":"आ","r":"ी","R":"ई","t":"ू","T":"ऊ","y":"ब","Y":"भ","u":"ह","U":"ङ","i":"ग","I":"घ","o":"द","O":"ध","p":"ज","P":"झ","[":"ड","{{":"ढ","]":"़","}}":"ञ","a":"ो","A":"ओ","s":"े","S":"ए","d":"्","D":"अ","f":"ि","F":"इ","g":"ु","G":"उ","h":"प","H":"फ","j":"र","J":"ऱ","k":"क","K":"ख","l":"त","L":"थ",";":"च",":":"छ","'":"ट","\\"": "ठ","z":"े","Z":"ॆ","x":"ं","X":"ँ","c":"म","C":"ण","v":"न","V":"ऩ","b":"व","B":"ऴ","n":"ल","N":"ळ","m":"स","M":"श",",":",","<":"ष",".":".",">":"।","/":"य","?":"य़","1":"१","2":"२","3":"३","4":"४","5":"५","6":"६","7":"७","8":"८","9":"९","0":"०"}};
+                let TIME_LIMIT = {comp_details['time_limit_mins']} * 60; let timeLeft = TIME_LIMIT; let timerInterval = null; let testActive = false; let currentWordIndex = 0; let typedWordsArray = [];
+                const displayEl = document.getElementById("text-display"); const inputEl = document.getElementById("input-box");
+                displayEl.innerHTML = referenceText.map((word, index) => `<span class="word ${{index === 0 ? 'current-word' : ''}}" id="word-${{index}}">${{word}}</span>`).join("");
+                inputEl.addEventListener("keydown", function(e) {{
+                    if (e.ctrlKey && (e.key === 'c' || e.key === 'v')) {{ e.preventDefault(); return; }}
+                    if (!testActive && timeLeft === TIME_LIMIT && e.key.length === 1) {{
+                        testActive = true; timerInterval = setInterval(() => {{ timeLeft--; let m = Math.floor(timeLeft/60); let s = timeLeft%60; document.getElementById("timer").innerText = m + ":" + (s < 10 ? '0' : '') + s; if (timeLeft <= 0) endTest(); }}, 1000);
+                    }}
+                    if (inscriptMap[e.key]) {{ e.preventDefault(); const start = this.selectionStart; const end = this.selectionEnd; this.value = this.value.slice(0, start) + inscriptMap[e.key] + this.value.slice(end); this.selectionStart = this.selectionEnd = start + 1; }}
+                }});
+                inputEl.addEventListener("keyup", function(e) {{
+                    if (e.key === " ") {{
+                        let typedWord = this.value.trim(); if (typedWord === "") {{ this.value = ""; return; }}
+                        typedWordsArray.push(typedWord); const wordSpan = document.getElementById(`word-${{currentWordIndex}}`);
+                        if (typedWord === referenceText[currentWordIndex]) wordSpan.classList.add("correct"); else wordSpan.classList.add("incorrect");
+                        wordSpan.classList.remove("current-word"); currentWordIndex++; this.value = "";
+                        const nextWord = document.getElementById(`word-${{currentWordIndex}}`);
+                        if (nextWord) {{ nextWord.classList.add("current-word"); nextWord.scrollIntoView({{behavior: 'smooth', block: 'center'}}); }}
+                    }}
+                }});
+                function endTest() {{
+                    clearInterval(timerInterval); inputEl.disabled = true; testActive = false; let finalWord = inputEl.value.trim(); if(finalWord) typedWordsArray.push(finalWord);
+                    let timeElapsedInMinutes = (TIME_LIMIT - timeLeft) / 60; let totalErrors = 0, totalTypedChars = 0;
+                    for (let i = 0; i < typedWordsArray.length; i++) {{ totalTypedChars += typedWordsArray[i].length + 1; if (typedWordsArray[i] !== referenceText[i]) totalErrors++; }}
+                    let grossWPM = Math.round((totalTypedChars / 5) / timeElapsedInMinutes); let netWPM = Math.max(0, Math.round(grossWPM - (totalErrors / timeElapsedInMinutes))); let accuracy = Math.max(0, Math.round(((typedWordsArray.length - totalErrors) / typedWordsArray.length) * 100));
+                    document.getElementById("main-app").innerHTML = `<h2 style="color:#2e7d32; text-align:center;">Test Submitted!</h2><div style="text-align:center; padding:20px; background:#e8f5e9; border-radius:8px;"><h3>Net WPM: ${{netWPM}}</h3><h3>Accuracy: ${{accuracy}}%</h3></div>`;
+                    fetch("{supabase_url}/rest/v1/competition_enrollments", {{ method: "POST", headers: {{ "Content-Type": "application/json", "apikey": "{supabase_key}", "Authorization": "Bearer {supabase_key}" }}, body: JSON.stringify({{ unique_code: "{unique_code}", competition_slug: "{comp_slug}", typing_wpm: netWPM, typing_accuracy: accuracy }}) }});
+                }}
+            </script>
+        </body></html>
+        """
+        components.html(html_code, height=600)
+
+    # ==========================================
+    # ROUTE 3: ESSAY, DEBATE, ETC. (PDF UPLOAD)
+    # ==========================================
+    else:
+        if not has_attempted:
+            st.warning("'प्रारंभ' पर क्लिक करने के बाद, आपका समय शुरू हो जाएगा। / Once you click 'Start', your timer will begin.")
+            if st.button("प्रतियोगिता प्रारंभ करें / Start Competition"):
+                supabase.table("competition_enrollments").insert({"unique_code": unique_code, "competition_slug": comp_slug}).execute()
+                st.rerun()
+        else:
+            start_time_str = enroll_check.data[0]['start_time']
+            start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
+            end_time_val = start_time + timedelta(minutes=comp_details["time_limit_mins"])
+            now_utc = datetime.now(timezone.utc)
             
-            with st.spinner("आपका परिणाम सुरक्षित किया जा रहा है..."):
-                try:
-                    supabase.table("competition_enrollments").insert({
-                        "unique_code": unique_code,
-                        "competition_slug": comp_slug,
-                        "score": final_score,
-                        "correct_answers": correct_answers,
-                        "wrong_answers": wrong_answers,
-                        "unanswered": unanswered
-                    }).execute()
-                except Exception as e:
-                    st.error(f"स्कोर सेव करने में तकनीकी त्रुटि: {e}")
-                    st.stop()
+            time_left = end_time_val - now_utc
+            minutes_left = int(time_left.total_seconds() // 60)
             
-            st.session_state.results = {
-                "correct": correct_answers,
-                "wrong": wrong_answers,
-                "unanswered": unanswered,
-                "negative": negative_marks,
-                "final_score": final_score,
-                "total": len(IDIOMS_QUESTIONS)
-            }
-            st.session_state.test_submitted = True
-            st.rerun()
+            if now_utc >= end_time_val:
+                st.error("आपका समय समाप्त हो गया है! प्रस्तुतियाँ अब बंद कर दी गई हैं।")
+            else:
+                st.info(f"⏳ **शेष समय:** लगभग {minutes_left} मिनट।")
+                st.divider()
+                st.subheader("प्रश्न पत्र / Question Paper")
+                st.markdown(f"**[📄 प्रश्न पत्र देखने/डाउनलोड करने के लिए यहाँ क्लिक करें]({comp_details['question']})**")
+                st.divider()
+                
+                uploaded_file = st.file_uploader("अपनी अंतिम उत्तर फ़ाइल अपलोड करें (PDF, DOC, DOCX, JPG, JPEG)", type=["pdf", "doc", "docx", "jpg", "jpeg"])
+                if uploaded_file is not None:
+                    if st.button("दस्तावेज़ जमा करें / Submit Document"):
+                        with st.spinner("अपलोड हो रहा है..."):
+                            try:
+                                file_ext = uploaded_file.name.split(".")[-1]
+                                file_path = f"{unique_code}_{comp_slug}.{file_ext}"
+                                supabase.storage.from_("competition_documents").upload(file_path, uploaded_file.getvalue(), file_options={"x-upsert": "true"})
+                                file_url = supabase.storage.from_("competition_documents").get_public_url(file_path)
+                                supabase.table("competition_enrollments").update({"file_url": file_url}).eq("unique_code", unique_code).eq("competition_slug", comp_slug).execute()
+                                st.success("फ़ाइल सफलतापूर्वक अपलोड की गई!")
+                            except Exception as e:
+                                st.error(f"अपलोड विफल: {e}")
